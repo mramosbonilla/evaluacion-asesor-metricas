@@ -195,7 +195,7 @@ grade=function(){
   return{cell:key,label:labels[i],ok:hasFormula&&dataLinked&&numericCorrect,
    hasFormula,dataLinked,got:fmt(value),expected:i===2?(targets[i]*100).toFixed(2)+" %":String(targets[i]),input};
  });
- const helperFormulas=Object.entries(cells).filter(([k,v])=>/^[HK](?:[1-9]\d*)$/.test(k)&&String(v).trimStart().startsWith("=")).map(([cell,input])=>({cell,input}));
+ const helperFormulas=Object.entries(cells).filter(([k,v])=>/^[H-K][1-9]\d*$/.test(k)&&!keys.includes(k)&&String(v).trimStart().startsWith("=")).map(([cell,input])=>({cell,input}));
  return{score:tests.filter(t=>t.ok).length*25,tests,
   formulas:tests.every(t=>t.hasFormula&&t.dataLinked),
   methodUsed:helperFormulas.length?"Fórmulas directas y/o auxiliares":"Fórmulas directas o encadenadas",
