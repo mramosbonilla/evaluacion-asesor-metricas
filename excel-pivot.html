@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Excel avanzado · Tablas dinámicas | Vista de prueba</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jquery-ui-dist@1.13.3/jquery-ui.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pivottable@2.23.0/dist/pivot.min.css">
+<style>
+:root{font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:#1d2939;background:#eef3f7}
+*{box-sizing:border-box}body{margin:0}header{background:#14543c;color:white;padding:19px max(22px,calc((100vw - 1180px)/2))}
+header h1{font-size:23px;line-height:1.25;margin:3px 0}header p{margin:4px 0;color:#dbf5e7}
+main{max-width:1180px;margin:22px auto;padding:0 17px}.card{border:1px solid #dbe3e8;border-radius:13px;background:white;padding:20px;margin:14px 0;box-shadow:0 2px 7px #0a34300a}
+h2{font-size:20px;margin:0 0 11px}p{line-height:1.5;margin:8px 0}.note{font-size:14px;color:#536579}.notice{border-left:4px solid #1e8a60;background:#e9f7f0;padding:12px;border-radius:5px}
+.actions{display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin:13px 0}button,.button{border:0;border-radius:7px;background:#16673f;color:#fff;padding:10px 15px;cursor:pointer;font-weight:650;font-size:14px}
+.button.alt{color:#155a40;background:#e5f3ea;text-decoration:none}
+#pivot{overflow-x:auto;min-height:150px;padding:2px}.pvtUi{font-size:13px}.pvtUi td{vertical-align:top}
+table.data{border-collapse:collapse;min-width:800px;width:100%;font-size:13px}table.data td,table.data th{border:1px solid #dde4e9;padding:8px;text-align:left}table.data th{background:#f0f5f7;position:sticky;top:0}
+.scroll{overflow-x:auto;max-height:315px}#raw{display:none}
+footer{color:#667986;font-size:13px;text-align:center;margin:25px}
+@media(max-width:640px){header h1{font-size:19px}.card{padding:12px}.pvtUi{font-size:11px}header{padding:16px}}
+</style></head>
+<body>
+<header><h1>Excel avanzado · Tablas dinámicas</h1><p>Entorno de práctica sin costo · Datos 100 % ficticios</p></header>
+<main>
+<section class="card">
+<h2>Objetivo del ejercicio</h2>
+<p>Una papelería ficticia desea analizar sus ventas. Construye una <b>tabla dinámica</b> que muestre la <b>suma de Importe</b> por <b>Sucursal</b> (filas) y <b>Categoría</b> (columnas). Luego cambia la disposición de los campos, filtra por <b>Mes</b> y observa cómo cambian los totales.</p>
+<p class="notice"><b>Esta es una demostración del motor de tablas dinámicas, no la evaluación final.</b> Puedes explorar libremente; aquí no se capturan ni envían respuestas.</p>
+<p class="note">Los campos se arrastran entre las áreas de filas, columnas y filtros. En el selector de cálculo, elige <b>Sum</b> y el campo <b>Importe</b>. La biblioteca utiliza ciertos textos en inglés; el ejercicio está explicado en español.</p>
+<div class="actions"><button id="reset">Reiniciar tabla dinámica</button><button id="show" class="button alt">Mostrar registros de origen</button><a class="button alt" href="./vista-previa.html">Volver a la prueba completa</a></div>
+</section>
+<section class="card"><h2>Área de tabla dinámica</h2><div id="status" class="note">Inicializando herramienta…</div><div id="pivot"></div></section>
+<section class="card" id="raw"><h2>Datos de origen</h2><p class="note">Estos registros fueron generados para este ejemplo y no representan a ninguna empresa real.</p><div class="scroll"><table class="data"><thead><tr><th>Fecha</th><th>Mes</th><th>Sucursal</th><th>Categoría</th><th>Producto</th><th>Unidades</th><th>PrecioUnitario</th><th>Importe</th></tr></thead><tbody id="records"></tbody></table></div></section>
+</main><footer>Proyecto de evaluación técnica · Demostración sin calificación ni almacenamiento de datos personales</footer>
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery-ui-dist@1.13.3/jquery-ui.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pivottable@2.23.0/dist/pivot.min.js"></script>
+<script>
+(function(){
+"use strict";
+var meses=["Enero","Febrero","Marzo"],sucursales=["Centro","Norte","Sur"];
+var productos=[
+ {producto:"Cuadernos",categoria:"Papelería",precio:95},
+ {producto:"Carpetas",categoria:"Papelería",precio:80},
+ {producto:"Resmas",categoria:"Oficina",precio:225},
+ {producto:"Bolígrafos",categoria:"Oficina",precio:35},
+ {producto:"Calculadoras",categoria:"Tecnología",precio:550},
+ {producto:"Memorias USB",categoria:"Tecnología",precio:420}
+];
+var datos=[];
+for(var m=0;m<meses.length;m++)for(var s=0;s<sucursales.length;s++)for(var p=0;p<productos.length;p++){
+ var item=productos[p],unidades=2+(p*3+s*5+m*2)%13,importe=unidades*item.precio;
+ datos.push({Fecha:"2026-"+String(m+1).padStart(2,"0")+"-"+String(3+(p*2+s*3)%24).padStart(2,"0"),
+ Mes:meses[m],Sucursal:sucursales[s],Categoría:item.categoria,Producto:item.producto,
+ Unidades:unidades,PrecioUnitario:item.precio,Importe:importe});
+}
+var raw=document.getElementById("raw");
+document.getElementById("records").innerHTML=datos.map(function(d){
+ return "<tr>"+["Fecha","Mes","Sucursal","Categoría","Producto","Unidades","PrecioUnitario","Importe"].map(function(k){
+ return "<td>"+String(d[k])+"</td>";}).join("")+"</tr>";
+}).join("");
+document.getElementById("show").onclick=function(){
+ raw.style.display=raw.style.display==="block"?"none":"block";
+ this.textContent=raw.style.display==="block"?"Ocultar registros de origen":"Mostrar registros de origen";
+};
+function iniciar(){
+ var status=document.getElementById("status");
+ if(!window.jQuery || !window.jQuery.fn || !window.jQuery.fn.pivotUI){
+  status.textContent="No se cargó la biblioteca de tablas dinámicas. Comprueba tu conexión a Internet y recarga la página.";
+  return;
+ }
+ try {
+  window.jQuery("#pivot").pivotUI(datos,{
+   rows:["Sucursal"],cols:["Categoría"],vals:["Importe"],aggregatorName:"Sum",rendererName:"Table",
+   sorters:{Mes:window.jQuery.pivotUtilities.sortAs(meses)},menuLimit:200},true);
+  status.textContent="Tabla dinámica activa · "+datos.length+" registros ficticios. Arrastra los campos para modificar el análisis.";
+ }catch(err){status.textContent="Error al iniciar el motor: "+String(err&&err.message||err);}
+}
+document.getElementById("reset").onclick=iniciar;
+if(document.readyState==="complete")iniciar();else window.addEventListener("load",iniciar);
+})();
+</script></body></html>
