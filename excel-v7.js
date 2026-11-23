@@ -220,7 +220,7 @@ function onFinish(){
  if(!confirm("¿Confirmas que has terminado la práctica de Excel? Podrás continuar con las demás secciones de la evaluación."))return;
  finished=true;clearInterval(interval);result=grade();
  if(window.parent!==window&&new URLSearchParams(location.search).get("embed")==="1"){
-  window.parent.postMessage({type:"MVM_EXCEL_COMPLETE",version:7,score:result.score,answers:result.answers},location.origin);
+  window.parent.postMessage({type:"MVM_EXCEL_COMPLETE",version:7,score:result.score,answers:result.answers,helperFormulas:result.helperFormulas,formulaChecks:result.tests.map(t=>({cell:t.cell,hasFormula:t.hasFormula,dataLinked:t.dataLinked,correct:t.ok}))},location.origin);
   byId("status").textContent="Práctica de Excel terminada. Regresando a la evaluación…";
   return;
  }
