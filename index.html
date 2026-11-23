@@ -348,7 +348,7 @@ touchBtn.onclick=()=>{touchRangeMode=!touchRangeMode;touchAnchorPending=false;to
 $id('apply').after(touchBtn);
 const count=document.createElement('span');count.id='selectionCount';count.className='selection-count';$id('status').before(count);
 const v=$id('excel').querySelector('.badge');if(v)v.textContent='Simulador de Excel · v6';
-for(const el of document.querySelectorAll('#welcome .badge'))el.textContent='Prototipo de validación · Excel v6';
+for(const el of document.querySelectorAll('#welcome .badge'))el.textContent='Prototipo de validación · Excel v15';
 const hint=$id('excel').querySelector('.footer .hint');if(hint)hint.textContent='Arrastra para seleccionar · Shift + flechas para ampliar · Ctrl + A para toda la hoja · Doble clic/F2 para editar';
 renderMenu();
 // COUNT debe ignorar celdas vacías, a diferencia de Number('') que devuelve cero.
