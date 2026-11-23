@@ -22,20 +22,20 @@ table{border-collapse:collapse;width:100%;font-size:14px}th,td{border:1px solid 
 <main>
 <article>
 <h2>Tu desafío</h2>
-<p><strong>MVM, cadena de librerías completamente ficticia,</strong> tiene un archivo <code>ventas_ficticias.csv</code>. Usando <strong>pandas</strong>, crea una tabla agrupada por <code>categoria</code> que muestre el total de unidades y el importe total. Ordena las categorías de mayor a menor importe.</p>
+<p><strong>MVM produce, distribuye y vende libros.</strong> Para analizar las ventas de sus títulos editoriales, dispone del archivo <code>ventas_mvm.csv</code>. Usando <strong>pandas</strong>, crea una tabla agrupada por <code>categoria</code> que muestre el total de unidades y el importe total. Ordena las categorías de mayor a menor importe.</p>
 <div class="note"><strong>Pista técnica:</strong> el importe de cada registro se calcula como <code>unidades * precio_unitario</code>. Puedes utilizar <code>groupby</code>, <code>agg</code>, <code>sort_values</code> y <code>print</code> para mostrar el resultado. No se evalúa automáticamente en esta demostración.</div>
 <div class="row"><a href="./vista-previa.html">Volver a la evaluación</a><span class="muted">·</span><a href="./sql.html">SQL</a><span class="muted">·</span><a href="./excel-pivot.html">Tablas dinámicas</a></div>
 <p class="muted small">La primera carga de Python y pandas descarga archivos grandes; requiere Internet. No se envían los datos ni el código ejecutado a un servidor de evaluación.</p>
 </article>
-<article><h2>Estructura de datos</h2><p>CSV ficticio disponible en el sistema de archivos temporal de Python como <code>ventas_ficticias.csv</code> (12 registros).</p>
-<div class="scroll"><table><thead><tr><th>fecha</th><th>tienda</th><th>categoria</th><th>producto</th><th>unidades</th><th>precio_unitario</th></tr></thead>
-<tbody><tr><td>2026-02-02</td><td>Centro</td><td>Papeleria</td><td>Cuaderno</td><td>10</td><td>60</td></tr><tr><td>2026-02-02</td><td>Norte</td><td>Oficina</td><td>Lapiz</td><td>20</td><td>15</td></tr><tr><td>2026-02-03</td><td>Sur</td><td>Tecnologia</td><td>Memoria USB</td><td>5</td><td>320</td></tr></tbody></table></div>
+<article><h2>Estructura de datos</h2><p>CSV de ejemplo de MVM disponible en el sistema de archivos temporal de Python como <code>ventas_mvm.csv</code> (12 registros).</p>
+<div class="scroll"><table><thead><tr><th>fecha</th><th>tienda</th><th>categoria</th><th>titulo</th><th>unidades</th><th>precio_unitario</th></tr></thead>
+<tbody><tr><td>2026-02-02</td><td>Centro</td><td>Narrativa</td><td>La isla de papel</td><td>10</td><td>450</td></tr><tr><td>2026-02-02</td><td>Norte</td><td>Infantil</td><td>El bosque de letras</td><td>20</td><td>320</td></tr><tr><td>2026-02-03</td><td>Sur</td><td>Narrativa</td><td>Historias breves</td><td>5</td><td>380</td></tr></tbody></table></div>
 </article>
 <article><h2>Editor Python</h2>
 <label for="code" class="muted small">El código se ejecuta con Pyodide. Usa Ctrl + Enter o ⌘ + Enter para ejecutar.</label>
 <textarea id="code" spellcheck="false" aria-label="Editor de Python">import pandas as pd
 
-df = pd.read_csv("ventas_ficticias.csv")
+df = pd.read_csv("ventas_mvm.csv")
 print("Vista inicial de las ventas:")
 print(df.head())
 
@@ -52,24 +52,24 @@ const $=id=>document.getElementById(id);
 const version="https://cdn.jsdelivr.net/pyodide/v314.0.8/full/";
 const initial=$("code").value;
 const csv=[
-"fecha,tienda,categoria,producto,unidades,precio_unitario",
-"2026-02-02,Centro,Papeleria,Cuaderno,10,60",
-"2026-02-02,Norte,Oficina,Lapiz,20,15",
-"2026-02-03,Sur,Tecnologia,Memoria USB,5,320",
-"2026-02-03,Centro,Tecnologia,Calculadora,4,450",
-"2026-02-04,Norte,Papeleria,Carpeta,8,75",
-"2026-02-05,Sur,Oficina,Resma,6,180",
-"2026-02-06,Centro,Tecnologia,Memoria USB,3,320",
-"2026-02-06,Sur,Papeleria,Cuaderno,7,60",
-"2026-02-07,Norte,Tecnologia,Calculadora,2,450",
-"2026-02-07,Centro,Oficina,Lapiz,15,15",
-"2026-02-08,Sur,Papeleria,Carpeta,5,75",
-"2026-02-08,Norte,Oficina,Resma,3,180"
+"fecha,tienda,categoria,titulo,unidades,precio_unitario",
+"2026-02-02,Centro,Narrativa,La isla de papel,10,450",
+"2026-02-02,Norte,Infantil,El bosque de letras,20,320",
+"2026-02-03,Sur,Narrativa,Historias breves,5,380",
+"2026-02-03,Centro,Infantil,Aprendo numeros,4,260",
+"2026-02-04,Norte,No ficcion,Rutas del Caribe,8,520",
+"2026-02-05,Sur,Academico,Atlas de ideas,6,790",
+"2026-02-06,Centro,Narrativa,Historias breves,3,380",
+"2026-02-06,Sur,Narrativa,La isla de papel,7,450",
+"2026-02-07,Norte,Infantil,Aprendo numeros,2,260",
+"2026-02-07,Centro,Infantil,El bosque de letras,15,320",
+"2026-02-08,Sur,No ficcion,Rutas del Caribe,5,520",
+"2026-02-08,Norte,Academico,Atlas de ideas,3,790"
 ].join("\n")+"\n";
 let py=null,running=false,output=[];
 function status(msg,err=false){$("status").textContent=msg;$("status").toggleAttribute("data-error",err);$("status").toggleAttribute("data-ready",!!py&&!err);}
 function outputText(t){output.push(t);$("console").textContent=output.join("\n");}
-function restoreFile(){if(!py)return;py.FS.writeFile("ventas_ficticias.csv",csv);status("Archivo CSV ficticio restablecido.");}
+function restoreFile(){if(!py)return;py.FS.writeFile("ventas_mvm.csv",csv);status("Archivo CSV ficticio restablecido.");}
 $("restore").onclick=()=>{$("code").value=initial;status(py?"Código inicial restaurado.":"Preparando motor…");};
 $("reload").onclick=restoreFile;
 async function execute(){
