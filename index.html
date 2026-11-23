@@ -157,7 +157,7 @@ function paint(){
  $id('selectionCount').textContent=stat;
 }
 function focusCell(k, extend=false, ctrl=false){
- if(!/^([A-K])([1-9]|1\d|2[0-5])$/.test(k))return;
+ if(!/^[A-K][1-9]\d*$/.test(k)||Number(k.slice(1))>R)return;
  if(ctrl){additionalRanges.push(currentRange());rangeStart=k;rangeEnd=k;}
  else if(extend){if(!rangeStart)rangeStart=selected;rangeEnd=k;}
  else {rangeStart=k;rangeEnd=k;additionalRanges=[];}
