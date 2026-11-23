@@ -69,7 +69,7 @@ const csv=[
 let py=null,running=false,output=[];
 function status(msg,err=false){$("status").textContent=msg;$("status").toggleAttribute("data-error",err);$("status").toggleAttribute("data-ready",!!py&&!err);}
 function outputText(t){output.push(t);$("console").textContent=output.join("\n");}
-function restoreFile(){if(!py)return;py.FS.writeFile("ventas_mvm.csv",csv);status("Archivo CSV ficticio restablecido.");}
+function restoreFile(){if(!py)return;py.FS.writeFile("ventas_mvm.csv",csv);status("Archivo CSV de ventas de libros restablecido.");}
 $("restore").onclick=()=>{$("code").value=initial;status(py?"Código inicial restaurado.":"Preparando motor…");};
 $("reload").onclick=restoreFile;
 async function execute(){
