@@ -5,7 +5,7 @@
 :root{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#18302b;background:#eef4f1}
 *{box-sizing:border-box}body{margin:0}header{background:#10613e;color:white;padding:20px max(16px,calc((100vw - 1260px)/2))}
 header h1{font-size:25px;margin:0 0 5px}header p{margin:0;color:#ddf6e9}
-main{max-width:1280px;margin:20px auto;padding:0 16px}
+main{max-width:1800px;width:100%;margin:20px auto;padding:0 clamp(12px,2vw,36px)}
 .card{border:1px solid #d3e3da;background:white;padding:19px;border-radius:11px;box-shadow:0 2px 9px #21453609;margin:13px 0}
 h2{font-size:20px;margin:0 0 10px}h3{font-size:16px;margin:0 0 9px}p{line-height:1.48;margin:8px 0}
 .muted{color:#576c64}.small{font-size:13px}
@@ -47,7 +47,11 @@ table{border-collapse:collapse;width:100%;font-size:13px}
 #pivotResult .total th,#pivotResult .total td,#pivotResult .total-col{font-weight:750;background:#e6f2e9}
 #pivotResult tbody tr:hover td{background:#f1f8f2}
 #pivotResult .grand{background:#cde8d5;font-weight:800}
-#resultInfo{font-size:13px;color:#546d5c}
+.result-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.result-heading h2{margin-bottom:0}
+.sort-label{display:flex;align-items:center;gap:9px;font-size:14px;font-weight:650;color:#315942;flex-wrap:wrap}
+.sort-label select{border:1px solid #a8c3b2;border-radius:7px;padding:10px;background:white;color:#213d2d;min-height:42px;font:inherit}
+#resultInfo{font-size:13px;color:#546d5c;margin-top:10px}
 .placeholder{border:1px dashed #c3d9ca;border-radius:9px;background:#f8fcf9;padding:27px;text-align:center;color:#526e5d;margin:14px 0}
 #raw{display:none}#raw table{min-width:720px}
 #raw th,#raw td{padding:7px;border:1px solid #d9e4dc;text-align:left}
@@ -56,11 +60,12 @@ table{border-collapse:collapse;width:100%;font-size:13px}
 .exercise{padding:10px 14px;border:1px solid #d5e6db;border-radius:8px;margin:8px 0}
 .exercise summary{cursor:pointer;font-weight:750;color:#1d603b}
 .exercise p{font-size:14px}footer{text-align:center;color:#647568;font-size:12px;padding:18px}
+@media(min-width:1100px){.layout{grid-template-columns:215px minmax(0,1fr);gap:20px}.zones{grid-template-columns:repeat(4,minmax(0,1fr))}.zone{min-height:155px}.builder{min-width:0}}
 @media(max-width:850px){.layout{grid-template-columns:1fr}.fields{grid-template-columns:repeat(auto-fill,minmax(145px,1fr))}}
 @media(max-width:580px){header h1{font-size:20px}.zones{grid-template-columns:1fr}.card{padding:12px}.zone{min-height:94px}main{padding:0 9px}#pivotResult{min-width:480px}}
 </style>
 </head><body>
-<header><h1>MVM · Excel avanzado · Tablas dinámicas</h1><p>Empresa que produce, distribuye y vende libros · Motor de tablas dinámicas de práctica v11</p></header>
+<header><h1>MVM · Excel avanzado · Tablas dinámicas</h1><p>Empresa que produce, distribuye y vende libros · Motor de tablas dinámicas de práctica v13</p></header>
 <main>
 <section class="card">
 <h2>Ejercicios de evaluación práctica · 20 puntos</h2>
@@ -70,7 +75,7 @@ table{border-collapse:collapse;width:100%;font-size:13px}
 <details class="exercise"><summary>Ejercicio 2 · Filtrar febrero (6 puntos)</summary>
 <p>Conserva las áreas anteriores. En <strong>Filtros</strong>, elige <strong>Mes</strong> y marca únicamente <strong>Febrero</strong>. Identifica el total de febrero y la sucursal con más ventas ese mes.</p></details>
 <details class="exercise"><summary>Ejercicio 3 · Cambiar la medida (6 puntos)</summary>
-<p>Quita el filtro o pulsa <strong>Reiniciar</strong>. Selecciona <strong>Título</strong> en Filas, deja Columnas sin asignar, elige <strong>Unidades</strong> en Valores y <strong>Suma</strong>. Indica qué título vendió más ejemplares y cuántos.</p></details>
+<p>Quita el filtro o pulsa <strong>Reiniciar</strong>. Selecciona <strong>Título</strong> en Filas, deja Columnas sin asignar, elige <strong>Unidades</strong> en Valores y <strong>Suma</strong>. Indica qué título vendió más ejemplares y cuántos. <strong>La tabla debe quedar ordenada de mayor a menor según el total de unidades vendidas.</strong> Utiliza el control <strong>Ordenar filas por resultado → Mayor a menor</strong> que aparece sobre la tabla.</p></details>
 <div class="notice"><strong>Modo piloto:</strong> los cálculos funcionan localmente en el navegador; todavía no guardan ni califican respuestas en un servidor. Los datos se crearon para la prueba.</div>
 <div class="top-actions"><button id="reset" type="button">Reiniciar áreas</button><button id="showRaw" class="alt" type="button">Mostrar registros de origen</button><button id="finishPivot" type="button">Terminar práctica de tabla dinámica</button><a id="backToEvaluation" class="button alt" href="./vista-previa.html?etapa=4&amp;v=12">Volver a la etapa de tabla dinámica</a><a id="continueToSQL" class="button alt" href="./vista-previa.html?etapa=5&amp;v=12">Continuar a SQL</a></div>
 </section>
@@ -97,7 +102,7 @@ table{border-collapse:collapse;width:100%;font-size:13px}
 </div>
 </div>
 </section>
-<section class="card"><h2>Resultados de la tabla dinámica</h2><div id="resultInfo"></div><div id="resultShell"><div id="resultPlaceholder" class="placeholder">Selecciona un campo en <strong>Valores</strong>, por ejemplo <strong>Importe</strong>, para ver los resultados.</div><table id="pivotResult" aria-label="Resultados de la tabla dinámica" hidden></table></div></section>
+<section class="card"><div class="result-heading"><h2>Resultados de la tabla dinámica</h2><label for="sortOrder" class="sort-label">Ordenar filas por resultado <select id="sortOrder" aria-label="Ordenar filas según el resultado total"><option value="original">Orden original (sin ordenar por resultado)</option><option value="desc">Mayor a menor ↓</option><option value="asc">Menor a mayor ↑</option></select></label></div><div id="resultInfo"></div><div id="resultShell"><div id="resultPlaceholder" class="placeholder">Selecciona un campo en <strong>Valores</strong>, por ejemplo <strong>Importe</strong>, para ver los resultados.</div><table id="pivotResult" aria-label="Resultados de la tabla dinámica" hidden></table></div></section>
 <section class="card" id="raw"><h2>Registros de origen</h2><p class="muted small">Datos para practicar; no proceden de operaciones reales.</p><div class="scroll"><table><thead><tr><th>Fecha</th><th>Mes</th><th>Sucursal</th><th>Categoría</th><th>Título</th><th>Unidades</th><th>PrecioUnitario</th><th>Importe</th></tr></thead><tbody id="rawRows"></tbody></table></div></section>
 </main><footer>MVM · Evaluación técnica piloto · Los datos y cálculos permanecen en este dispositivo.</footer>
 <script>
@@ -191,6 +196,16 @@ function calculate(){
  }
  tab.hidden=false;placeholder.hidden=true;tab.replaceChildren();
  let rowValues=rowField?valuesFor(rowField).filter(x=>all.some(r=>String(r[rowField])===x)):["Total"];
+ const order=$("sortOrder").value;
+ if(rowField&&order!=="original"){
+  rowValues.sort((a,b)=>{
+   const groupA=all.filter(r=>String(r[rowField])===a);
+   const groupB=all.filter(r=>String(r[rowField])===b);
+   const totalA=aggregator(groupA,measure,op),totalB=aggregator(groupB,measure,op);
+   const diff=order==="desc"?totalB-totalA:totalA-totalB;
+   return diff||a.localeCompare(b,"es",{numeric:true});
+  });
+ }
  let colValues=colField?valuesFor(colField).filter(x=>all.some(r=>String(r[colField])===x)):[];
  const header=document.createElement("thead"),top=document.createElement("tr");
  putCell(top,"th",rowField||"Registros");
@@ -211,18 +226,19 @@ function calculate(){
  if(rowField)body.append(totals);
  tab.append(body);
  const label=op==="sum"?"Suma":op==="avg"?"Promedio":"Conteo";
- info.textContent=all.length+" de "+rows.length+" registros visibles · "+label+" de "+measure+(rowField?" por "+rowField:"")+(colField?" y "+colField:"");
+ info.textContent=all.length+" de "+rows.length+" registros visibles · "+label+" de "+measure+(rowField?" por "+rowField:"")+(colField?" y "+colField:"")+(rowField&&order!=="original"?" · Ordenado "+(order==="desc"?"de mayor a menor":"de menor a mayor"):"");
  setStatus("Tabla dinámica calculada: "+all.length+" registros · "+label+" de "+measure+". Puedes cambiar campos y filtros.");
 }
 function onUpdate(){
  resetFilterControls();calculate();
 }
 for(const id of ["rowField","colField","valueField","aggregate","filterField"])$(id).addEventListener("change",onUpdate);
+$("sortOrder").addEventListener("change",calculate);
 $("checkAll").onclick=()=>{selectedFilterValues=new Set(valuesFor($("filterField").value));resetFilterControls();calculate();};
 $("clearAll").onclick=()=>{selectedFilterValues.clear();resetFilterControls();calculate();};
 $("reset").onclick=()=>{
  for(const id of ["rowField","colField","valueField","filterField"])$(id).value="";
- $("aggregate").value="sum";lastFilter="";selectedFilterValues.clear();onUpdate();
+ $("aggregate").value="sum";$("sortOrder").value="original";lastFilter="";selectedFilterValues.clear();onUpdate();
 };
 $("showRaw").onclick=()=>{
  const raw=$("raw"),open=raw.style.display==="block";
