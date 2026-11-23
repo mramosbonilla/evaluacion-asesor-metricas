@@ -29,7 +29,17 @@ for(let i=0;i<item[1].length;i++)t+='<label><input type="radio" name="knowAnswer
 return t+'</div><div class="actions"><button class="btn secondary" onclick="questionMove(-1)" '+(knowledgeIndex===0?'disabled':'')+'>← Pregunta anterior</button><button class="btn" onclick="questionMove(1)">'+(knowledgeIndex===14?'Continuar a Excel →':'Siguiente pregunta →')+'</button><button class="btn secondary" onclick="questionJump(13)">Ir a pregunta 14 · SQL</button><button class="btn secondary" onclick="questionJump(14)">Ir a pregunta 15 · Python</button></div>';
 }
 function caseView(){const c=caseData[caseIndex];return '<h2>Casos abiertos · '+(caseIndex+1)+' de 3</h2><p class="muted">Piloto: el texto se mantiene mientras esta página permanezca abierta; no se envía ni se guarda en servidor.</p><div class="question"><strong>'+safeHtml(c[0])+'</strong><p>'+safeHtml(c[1])+'</p><textarea id="caseResponse" placeholder="Escribe tu razonamiento...">'+safeHtml(caseAnswers[caseIndex])+'</textarea></div><div class="actions"><button class="btn secondary" onclick="caseMove(-1)" '+(caseIndex===0?'disabled':'')+'>← Caso anterior</button><button class="btn" onclick="caseMove(1)">'+(caseIndex===2?'Continuar a revisión →':'Siguiente caso →')+'</button></div>';}
-function pilotReview(){return '<h2>Revisión del recorrido piloto</h2><p>Preguntas de conocimiento contestadas: <strong>'+knowledgeAnswers.filter(x=>x>=0).length+' / 15</strong>.</p><p>Casos abiertos con texto: <strong>'+caseAnswers.filter(x=>x.trim()).length+' / 3</strong>.</p><p>Práctica de Excel (fórmulas): <strong>'+ (excelPilotReport?('terminada; puntuación diagnóstica local '+excelPilotReport.score+'/100'):'sin finalizar')+'</strong>. Tabla dinámica: <strong>'+(pivotPilotReport?'recorrida':'pendiente')+'</strong>. Las pruebas de SQL y Python todavía no tienen calificación conectada.</p><p class="muted">No se ha enviado ningún examen. Próxima etapa: validar los ejercicios, diseñar cierre de evaluación, revisión privada de resultados y ranking.</p>';}
+function excelFormulaReview(){
+ if(!excelPilotReport)return "";
+ const rows=Object.entries(excelPilotReport.answers||{}).map(([cell,answer])=>
+  '<tr><td><strong>'+safeHtml(cell)+'</strong></td><td><code>'+safeHtml(answer.input||"")+'</code></td><td>'+safeHtml(answer.evaluated||"")+'</td></tr>').join("");
+ const auxiliaries=(excelPilotReport.helperFormulas||[]).map(row=>
+  '<tr><td><strong>'+safeHtml(row.cell)+'</strong></td><td><code>'+safeHtml(row.input)+'</code></td></tr>').join("");
+ return '<details class="question"><summary><strong>Revisar método utilizado en Excel</strong> · fórmulas finales y '+(excelPilotReport.helperFormulas||[]).length+' fórmulas auxiliares</summary><p class="muted">Revisión local del método, no resultado oficial.</p>'+
+ '<table style="width:100%;border-collapse:collapse"><thead><tr><th>Respuesta</th><th>Fórmula</th><th>Valor</th></tr></thead><tbody>'+rows+'</tbody></table>'+
+ (auxiliaries?'<h3>Fórmulas auxiliares</h3><table style="width:100%"><tbody>'+auxiliaries+'</tbody></table>':'<p class="muted">No se usaron auxiliares en las columnas H o K.</p>')+'</details>';
+}
+function pilotReview(){return '<h2>Revisión del recorrido piloto</h2><p>Preguntas de conocimiento contestadas: <strong>'+knowledgeAnswers.filter(x=>x>=0).length+' / 15</strong>.</p><p>Casos abiertos con texto: <strong>'+caseAnswers.filter(x=>x.trim()).length+' / 3</strong>.</p><p>Práctica de Excel (fórmulas): <strong>'+ (excelPilotReport?('terminada; puntuación diagnóstica local '+excelPilotReport.score+'/100'):'sin finalizar')+'</strong>. Tabla dinámica: <strong>'+(pivotPilotReport?'recorrida':'pendiente')+'</strong>. Las pruebas de SQL y Python todavía no tienen calificación conectada.</p>'+excelFormulaReview()+'<p class="muted">No se ha enviado ningún examen. Próxima etapa: validar los ejercicios, diseñar cierre de evaluación, revisión privada de resultados y ranking.</p>';}
 function pilotHandlers(){
 if(at===2)document.querySelectorAll('input[name="knowAnswer"]').forEach(el=>el.addEventListener("change",ev=>{knowledgeAnswers[knowledgeIndex]=Number(ev.target.value);render();}));
 if(at===7){const e=document.getElementById('caseResponse');if(e)e.addEventListener("input",ev=>{caseAnswers[caseIndex]=ev.target.value;});}}
@@ -39,7 +49,7 @@ function caseMove(n){if(n>0&&caseIndex===2){go(8);return;}caseIndex=Math.max(0,M
 let excelPilotReport=null,pivotPilotReport=null;
 window.addEventListener('message',event=>{
  if(event.origin!==window.location.origin || !event.data || event.data.type!=='MVM_EXCEL_COMPLETE' || event.data.version!==7)return;
- excelPilotReport={score:Number(event.data.score)||0,completedAt:Date.now()};
+ excelPilotReport={score:Number(event.data.score)||0,answers:event.data.answers||{},helperFormulas:Array.isArray(event.data.helperFormulas)?event.data.helperFormulas:[],formulaChecks:event.data.formulaChecks||[],completedAt:Date.now()};
  if(at===3)go(4);
 });
 window.addEventListener('message',event=>{
