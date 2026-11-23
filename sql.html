@@ -22,15 +22,15 @@ table{border-collapse:collapse;width:100%;font-size:14px}th,td{border:1px solid 
 <header><h1>MVM · SQL · Laboratorio práctico</h1><p>Motor SQLite real dentro del navegador · Prueba piloto · Sin costo</p></header>
 <main>
 <article><h2>Tu desafío</h2>
-<p><strong>MVM, cadena de librerías completamente ficticia,</strong> tiene ventas de tres tiendas. Debes preparar un resumen con las columnas <code>categoria</code>, <code>total_unidades</code> y <code>importe_total</code>. Agrupa por categoría, suma unidades e ingresos y ordena por ingresos descendentes.</p>
+<p><strong>MVM produce, distribuye y vende libros</strong> a través de sus tiendas y canales de distribución. Analiza las ventas de títulos editoriales en tres sucursales. Debes preparar un resumen con las columnas <code>categoria</code>, <code>total_unidades</code> y <code>importe_total</code>. Agrupa por categoría, suma unidades e ingresos y ordena por ingresos descendentes.</p>
 <div class="note"><strong>Condiciones:</strong> utiliza las tablas <code>ventas</code> y <code>productos</code> y su relación <code>producto_id</code>. El valor de cada línea es <code>unidades * precio_unitario</code>. Puedes ejecutar tantas consultas como necesites.</div>
 <p class="muted small">Esto es un laboratorio para comprobar el funcionamiento. No se guardan consultas ni se envían respuestas a ninguna empresa o servidor.</p>
 <div class="row"><a href="./vista-previa.html">Volver a la evaluación</a><span class="muted">·</span><a href="./excel-pivot.html">Tablas dinámicas</a><span class="muted">·</span><a href="./python.html">Python</a></div>
 </article>
 <article><h2>Tablas disponibles</h2>
 <div class="scroll"><table><thead><tr><th>Tabla</th><th>Campos</th><th>Descripción</th></tr></thead><tbody>
-<tr><td><code>productos</code></td><td><code>producto_id</code> INTEGER, <code>nombre</code> TEXT, <code>categoria</code> TEXT</td><td>Catálogo ficticio de productos</td></tr>
-<tr><td><code>ventas</code></td><td><code>venta_id</code> INTEGER, <code>fecha</code> TEXT, <code>tienda</code> TEXT, <code>producto_id</code> INTEGER, <code>unidades</code> INTEGER, <code>precio_unitario</code> REAL</td><td>Transacciones ficticias</td></tr>
+<tr><td><code>productos</code></td><td><code>producto_id</code> INTEGER, <code>nombre</code> TEXT, <code>categoria</code> TEXT</td><td>Catálogo de títulos de libros</td></tr>
+<tr><td><code>ventas</code></td><td><code>venta_id</code> INTEGER, <code>fecha</code> TEXT, <code>tienda</code> TEXT, <code>producto_id</code> INTEGER, <code>unidades</code> INTEGER, <code>precio_unitario</code> REAL</td><td>Ventas de libros registradas para el ejercicio</td></tr>
 </tbody></table></div>
 </article>
 <article>
@@ -58,18 +58,18 @@ function seed(){
  db=new SQL.Database();
  db.run("CREATE TABLE productos (producto_id INTEGER PRIMARY KEY, nombre TEXT, categoria TEXT NOT NULL);");
  db.run("CREATE TABLE ventas (venta_id INTEGER PRIMARY KEY, fecha TEXT, tienda TEXT, producto_id INTEGER, unidades INTEGER, precio_unitario REAL, FOREIGN KEY(producto_id) REFERENCES productos(producto_id));");
- const ps=[[1,"Cuaderno","Papelería"],[2,"Carpeta","Papelería"],[3,"Lápiz","Oficina"],[4,"Resma","Oficina"],[5,"Memoria USB","Tecnología"],[6,"Calculadora","Tecnología"]];
+ const ps=[[1,"La isla de papel","Narrativa"],[2,"Rutas del Caribe","No ficción"],[3,"El bosque de letras","Infantil"],[4,"Atlas de ideas","Académico"],[5,"Historias breves","Narrativa"],[6,"Aprendo números","Infantil"]];
  const vs=[
- [1,"2026-02-02","Centro",1,10,60],[2,"2026-02-02","Norte",3,20,15],
- [3,"2026-02-03","Sur",5,5,320],[4,"2026-02-03","Centro",6,4,450],
- [5,"2026-02-04","Norte",2,8,75],[6,"2026-02-05","Sur",4,6,180],
- [7,"2026-02-06","Centro",5,3,320],[8,"2026-02-06","Sur",1,7,60],
- [9,"2026-02-07","Norte",6,2,450],[10,"2026-02-07","Centro",3,15,15],
- [11,"2026-02-08","Sur",2,5,75],[12,"2026-02-08","Norte",4,3,180]
+ [1,"2026-02-02","Centro",1,10,450],[2,"2026-02-02","Norte",3,20,320],
+ [3,"2026-02-03","Sur",5,5,380],[4,"2026-02-03","Centro",6,4,260],
+ [5,"2026-02-04","Norte",2,8,520],[6,"2026-02-05","Sur",4,6,790],
+ [7,"2026-02-06","Centro",5,3,380],[8,"2026-02-06","Sur",1,7,450],
+ [9,"2026-02-07","Norte",6,2,260],[10,"2026-02-07","Centro",3,15,320],
+ [11,"2026-02-08","Sur",2,5,520],[12,"2026-02-08","Norte",4,3,790]
  ];
- const ip=db.prepare("INSERT INTO productos VALUES (?, ?, ?)");for(const row of ps)ip.run(row);ip.free();
+  const ip=db.prepare("INSERT INTO productos VALUES (?, ?, ?)");for(const row of ps)ip.run(row);ip.free();
  const iv=db.prepare("INSERT INTO ventas VALUES (?, ?, ?, ?, ?, ?)");for(const row of vs)iv.run(row);iv.free();
- status("SQLite listo · 6 productos y 12 ventas ficticias.");
+ status("SQLite listo · 6 títulos y 12 ventas de libros.");
 }
 function cellText(t){const e=document.createElement("td");e.textContent=t===null?"NULL":String(t);return e;}
 function renderResults(sets){const out=$("output");out.replaceChildren();if(!sets.length){const p=document.createElement("p");p.textContent="Consulta ejecutada. No hay filas para mostrar (posible operación de modificación).";out.append(p);return;}
