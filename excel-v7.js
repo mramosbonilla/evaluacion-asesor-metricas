@@ -176,7 +176,7 @@ if(hint){
 }
 const reminder=document.createElement("div");reminder.className="task";reminder.id="formulaRules";reminder.innerHTML="<strong>Importante:</strong> completa J3, J4, J5 y J7 con fórmulas que empiecen por <code>=</code>. Puedes realizar cálculos auxiliares en H y K; el resultado final debe venir de una fórmula. Para identificar el canal líder puedes utilizar <code>COUNTIFS</code>, <code>INDEX</code>, <code>MATCH</code> o <code>XLOOKUP</code> combinados con celdas auxiliares.";
 byId("excel").querySelector(".ribbon").before(reminder);
-const badge=byId("excel").querySelector(".badge");if(badge)badge.textContent="Simulador Excel · v7";
+const badge=byId("excel").querySelector(".badge");if(badge)badge.textContent="Simulador Excel · v14";
 if(new URLSearchParams(location.search).get("embed")==="1"){
  // Mantener la evaluación principal abierta mientras el candidato trabaja.
  byId("candidate").value="Participante de prueba";
