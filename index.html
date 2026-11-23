@@ -64,7 +64,7 @@ let touchRangeMode = false, touchAnchorPending = false;
 let additionalRanges = [], boldCells = {}, borderCells = {}, showFormulas = false, gridlines = true, zoom = 100;
 let copied = null;
 const initialSeed = seed;
-const originalEditCell = editCell;
+const originalEditCell = window.editCell;
 const originalCommit = commit;
 function isProtected(k){const p=addressParts(k);return p.r>=1&&p.r<=13&&p.c<=6;}
 function warn(message){$id('status').textContent=message;}
@@ -128,6 +128,7 @@ sheet.addEventListener('pointermove',mouseMove,true);
 sheet.addEventListener('pointerup',mouseUp,true);
 sheet.addEventListener('pointercancel',e=>{if(e.pointerId===pointer){pointer=null;paint();}},true);
 sheet.addEventListener('click',e=>{if(e.target.closest('td[data-cell]'))e.stopImmediatePropagation();},true);
+sheet.addEventListener('dblclick',e=>{const k=eventCell(e)||e.target.closest('td[data-cell]')?.dataset.cell;if(k&&!editing){e.preventDefault();beginEdit(k);}},true);
 document.addEventListener('pointerup',e=>{if(e.pointerId===pointer)mouseUp(e)},true);
 
 renderSheet = function(){
