@@ -70,7 +70,7 @@ function applyFunction(fn,args){
  }
  if(name==="SUMIFS"||name==="SUMAR.SI.CONJUNTO"){
   if(args.length<3||args.length%2!==1)return "#ERROR";
-  const s=series(args[0]);return s.reduce((z,v,i)=>z+(args.slice(1).every((x,j)=>j%2===0?true:matched(args[j],x,i))?(num(v)||0):0),0);
+  const s=series(args[0]);return s.reduce((z,v,i)=>z+(args.slice(1).every((x,j)=>j%2===0?true:matched(args[j-1],x,i))?(num(v)||0):0),0);
  }
  if(name==="INDEX"||name==="INDICE"){
   const a=series(args[0]||[]),n=Math.trunc(num(args[1]??1));
@@ -167,13 +167,15 @@ function onFinish(){
 finish=onFinish;
 byId("finish").onclick=()=>onFinish();
 byId("finish").textContent="Terminar práctica de Excel";
-const hint=byId("excel").querySelector(".task");
+const hint=byId("instructions").querySelector(".task");
 if(hint){
  const extra=document.createElement("p");
  extra.className="hint";
  extra.innerHTML="<strong>Obligatorio:</strong> las respuestas finales J3, J4, J5 y J7 deben contener fórmulas (comenzar con =), no valores escritos manualmente. Puedes usar las celdas libres de las columnas H y K para operaciones auxiliares; sus resultados pueden alimentar las fórmulas finales. Se admiten SUM, COUNTIF, SUMIF, COUNTIFS, SUMIFS, IF, MAX, INDEX, MATCH, XLOOKUP y referencias entre celdas.";
  hint.appendChild(extra);
 }
+const reminder=document.createElement("div");reminder.className="task";reminder.id="formulaRules";reminder.innerHTML="<strong>Importante:</strong> completa J3, J4, J5 y J7 con fórmulas que empiecen por <code>=</code>. Puedes realizar cálculos auxiliares en H y K; el resultado final debe venir de una fórmula. Para identificar el canal líder puedes utilizar <code>COUNTIFS</code>, <code>INDEX</code>, <code>MATCH</code> o <code>XLOOKUP</code> combinados con celdas auxiliares.";
+byId("excel").querySelector(".ribbon").before(reminder);
 const badge=byId("excel").querySelector(".badge");if(badge)badge.textContent="Simulador Excel · v7";
 if(new URLSearchParams(location.search).get("embed")==="1"){
  // Mantener la evaluación principal abierta mientras el candidato trabaja.
