@@ -18,18 +18,26 @@ footer{color:#667986;font-size:13px;text-align:center;margin:25px}
 @media(max-width:640px){header h1{font-size:19px}.card{padding:12px}.pvtUi{font-size:11px}header{padding:16px}}
 </style></head>
 <body>
-<header><h1>Excel avanzado · Tablas dinámicas</h1><p>Entorno de práctica sin costo · Datos 100 % ficticios</p></header>
+<header><h1>MVM · Excel avanzado · Tablas dinámicas</h1><p>MVM es una cadena de librerías completamente ficticia · Datos de prueba sin costo</p></header>
 <main>
 <section class="card">
-<h2>Objetivo del ejercicio</h2>
-<p>Una papelería ficticia desea analizar sus ventas. Construye una <b>tabla dinámica</b> que muestre la <b>suma de Importe</b> por <b>Sucursal</b> (filas) y <b>Categoría</b> (columnas). Luego cambia la disposición de los campos, filtra por <b>Mes</b> y observa cómo cambian los totales.</p>
-<p class="notice"><b>Esta es una demostración del motor de tablas dinámicas, no la evaluación final.</b> Puedes explorar libremente; aquí no se capturan ni envían respuestas.</p>
-<p class="note">Los campos se arrastran entre las áreas de filas, columnas y filtros. En el selector de cálculo, elige <b>Sum</b> y el campo <b>Importe</b>. La biblioteca utiliza ciertos textos en inglés; el ejercicio está explicado en español.</p>
+<h2>Prueba de tablas dinámicas · MVM</h2>
+<p>Dispones de <strong>54 registros ficticios</strong> de ventas de MVM, con campos Mes, Sucursal, Categoría, Producto, Unidades, PrecioUnitario e Importe. Parte de una tabla dinámica vacía; elige los campos y la función de agregación.</p>
+<p class="notice"><b>Demostración para validar habilidades.</b> No se envían ni se califican respuestas. La base es ficticia y no contiene datos de ninguna empresa real.</p>
+<div style="padding:3px 0">
+<p><b>Ejercicio 1 · Construcción de tabla dinámica (8 puntos)</b></p>
+<p>Arrastra <b>Sucursal</b> a las filas, <b>Categoría</b> a las columnas e <b>Importe</b> a valores. Elige <b>Sum</b>. Identifica la sucursal y categoría de mayor importe, además del total general.</p>
+<p><b>Ejercicio 2 · Filtro por período (6 puntos)</b></p>
+<p>Sin cambiar filas, columnas ni agregación, arrastra <b>Mes</b> a filtros y deja visible solo <b>Febrero</b>. Indica el importe de febrero y cuál sucursal tuvo el mayor importe en ese mes.</p>
+<p><b>Ejercicio 3 · Cambio de dimensiones y medida (6 puntos)</b></p>
+<p>Quita el filtro de Mes o reinicia la tabla. Coloca <b>Producto</b> en filas, <b>Unidades</b> en valores y utiliza <b>Sum</b>. Indica qué producto registró más unidades y cuántas.</p>
+</div>
+<p class="note">Cómo usarlo: los campos se arrastran entre filas, columnas, filtros y valores. En el selector de agregación (aparece en inglés) cambia <b>Count</b> por <b>Sum</b> y selecciona la variable que quieres sumar. <b>Reiniciar</b> vuelve a la tabla vacía. Para arrastrar campos, recomendamos mouse o trackpad; el soporte táctil aún debe comprobarse.</p>
 <div class="actions"><button id="reset">Reiniciar tabla dinámica</button><button id="show" class="button alt">Mostrar registros de origen</button><a class="button alt" href="./vista-previa.html">Volver a la prueba completa</a></div>
 </section>
 <section class="card"><h2>Área de tabla dinámica</h2><div id="status" class="note">Inicializando herramienta…</div><div id="pivot"></div></section>
-<section class="card" id="raw"><h2>Datos de origen</h2><p class="note">Estos registros fueron generados para este ejemplo y no representan a ninguna empresa real.</p><div class="scroll"><table class="data"><thead><tr><th>Fecha</th><th>Mes</th><th>Sucursal</th><th>Categoría</th><th>Producto</th><th>Unidades</th><th>PrecioUnitario</th><th>Importe</th></tr></thead><tbody id="records"></tbody></table></div></section>
-</main><footer>Proyecto de evaluación técnica · Demostración sin calificación ni almacenamiento de datos personales</footer>
+<section class="card" id="raw"><h2>Datos de origen · MVM</h2><p class="note">Los registros son exclusivamente sintéticos y no describen operaciones de ninguna empresa real.</p><div class="scroll"><table class="data"><thead><tr><th>Fecha</th><th>Mes</th><th>Sucursal</th><th>Categoría</th><th>Producto</th><th>Unidades</th><th>PrecioUnitario</th><th>Importe</th></tr></thead><tbody id="records"></tbody></table></div></section>
+</main><footer>Proyecto de evaluación técnica MVM · Demostración sin calificación ni almacenamiento de datos personales</footer>
 <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jquery-ui-dist@1.13.3/jquery-ui.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pivottable@2.23.0/dist/pivot.min.js"></script>
@@ -69,9 +77,9 @@ function iniciar(){
  }
  try {
   window.jQuery("#pivot").pivotUI(datos,{
-   rows:["Sucursal"],cols:["Categoría"],vals:["Importe"],aggregatorName:"Sum",rendererName:"Table",
+   rows:[],cols:[],vals:[],aggregatorName:"Count",rendererName:"Table",
    sorters:{Mes:window.jQuery.pivotUtilities.sortAs(meses)},menuLimit:200},true);
-  status.textContent="Tabla dinámica activa · "+datos.length+" registros ficticios. Arrastra los campos para modificar el análisis.";
+  status.textContent="Motor listo · "+datos.length+" registros ficticios de MVM. Sigue los tres ejercicios y arrastra los campos para construir tu tabla.";
  }catch(err){status.textContent="Error al iniciar el motor: "+String(err&&err.message||err);}
 }
 document.getElementById("reset").onclick=iniciar;
