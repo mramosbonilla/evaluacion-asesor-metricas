@@ -79,7 +79,7 @@ function iniciar(){
   window.jQuery("#pivot").pivotUI(datos,{
    rows:[],cols:[],vals:[],aggregatorName:"Count",rendererName:"Table",
    sorters:{Mes:window.jQuery.pivotUtilities.sortAs(meses)},menuLimit:200},true);
-  status.textContent="Motor listo · "+datos.length+" registros ficticios de MVM. Sigue los tres ejercicios y arrastra los campos para construir tu tabla.";
+  status.textContent="Motor listo · "+datos.length+" registros de ventas de libros de MVM. Sigue los tres ejercicios y arrastra los campos para construir tu tabla.";
  }catch(err){status.textContent="Error al iniciar el motor: "+String(err&&err.message||err);}
 }
 document.getElementById("reset").onclick=iniciar;
