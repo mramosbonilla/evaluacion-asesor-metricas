@@ -18,25 +18,25 @@ footer{color:#667986;font-size:13px;text-align:center;margin:25px}
 @media(max-width:640px){header h1{font-size:19px}.card{padding:12px}.pvtUi{font-size:11px}header{padding:16px}}
 </style></head>
 <body>
-<header><h1>MVM · Excel avanzado · Tablas dinámicas</h1><p>MVM es una cadena de librerías completamente ficticia · Datos de prueba sin costo</p></header>
+<header><h1>MVM · Excel avanzado · Tablas dinámicas</h1><p>MVM · Producción, distribución y venta de libros</p></header>
 <main>
 <section class="card">
 <h2>Prueba de tablas dinámicas · MVM</h2>
-<p>Dispones de <strong>54 registros ficticios</strong> de ventas de MVM, con campos Mes, Sucursal, Categoría, Producto, Unidades, PrecioUnitario e Importe. Parte de una tabla dinámica vacía; elige los campos y la función de agregación.</p>
-<p class="notice"><b>Demostración para validar habilidades.</b> No se envían ni se califican respuestas. La base es ficticia y no contiene datos de ninguna empresa real.</p>
+<p>Dispones de <strong>54 registros de ventas de libros</strong> de ventas de MVM, con campos Mes, Sucursal, Categoría, Título, Unidades, PrecioUnitario e Importe. Parte de una tabla dinámica vacía; elige los campos y la función de agregación.</p>
+<p class="notice"><b>Demostración para validar habilidades.</b> No se envían ni se califican respuestas. Los registros fueron creados exclusivamente para esta prueba.</p>
 <div style="padding:3px 0">
 <p><b>Ejercicio 1 · Construcción de tabla dinámica (8 puntos)</b></p>
 <p>Arrastra <b>Sucursal</b> a las filas, <b>Categoría</b> a las columnas e <b>Importe</b> a valores. Elige <b>Sum</b>. Identifica la sucursal y categoría de mayor importe, además del total general.</p>
 <p><b>Ejercicio 2 · Filtro por período (6 puntos)</b></p>
 <p>Sin cambiar filas, columnas ni agregación, arrastra <b>Mes</b> a filtros y deja visible solo <b>Febrero</b>. Indica el importe de febrero y cuál sucursal tuvo el mayor importe en ese mes.</p>
 <p><b>Ejercicio 3 · Cambio de dimensiones y medida (6 puntos)</b></p>
-<p>Quita el filtro de Mes o reinicia la tabla. Coloca <b>Producto</b> en filas, <b>Unidades</b> en valores y utiliza <b>Sum</b>. Indica qué producto registró más unidades y cuántas.</p>
+<p>Quita el filtro de Mes o reinicia la tabla. Coloca <b>Título</b> en filas, <b>Unidades</b> en valores y utiliza <b>Sum</b>. Indica qué título registró más unidades y cuántas.</p>
 </div>
 <p class="note">Cómo usarlo: los campos se arrastran entre filas, columnas, filtros y valores. En el selector de agregación (aparece en inglés) cambia <b>Count</b> por <b>Sum</b> y selecciona la variable que quieres sumar. <b>Reiniciar</b> vuelve a la tabla vacía. Para arrastrar campos, recomendamos mouse o trackpad; el soporte táctil aún debe comprobarse.</p>
 <div class="actions"><button id="reset">Reiniciar tabla dinámica</button><button id="show" class="button alt">Mostrar registros de origen</button><a class="button alt" href="./vista-previa.html">Volver a la prueba completa</a></div>
 </section>
 <section class="card"><h2>Área de tabla dinámica</h2><div id="status" class="note">Inicializando herramienta…</div><div id="pivot"></div></section>
-<section class="card" id="raw"><h2>Datos de origen · MVM</h2><p class="note">Los registros son exclusivamente sintéticos y no describen operaciones de ninguna empresa real.</p><div class="scroll"><table class="data"><thead><tr><th>Fecha</th><th>Mes</th><th>Sucursal</th><th>Categoría</th><th>Producto</th><th>Unidades</th><th>PrecioUnitario</th><th>Importe</th></tr></thead><tbody id="records"></tbody></table></div></section>
+<section class="card" id="raw"><h2>Datos de origen · MVM</h2><p class="note">Datos de práctica creados para la evaluación, sin utilizar información operativa real.</p><div class="scroll"><table class="data"><thead><tr><th>Fecha</th><th>Mes</th><th>Sucursal</th><th>Categoría</th><th>Título</th><th>Unidades</th><th>PrecioUnitario</th><th>Importe</th></tr></thead><tbody id="records"></tbody></table></div></section>
 </main><footer>Proyecto de evaluación técnica MVM · Demostración sin calificación ni almacenamiento de datos personales</footer>
 <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jquery-ui-dist@1.13.3/jquery-ui.min.js"></script>
@@ -46,23 +46,23 @@ footer{color:#667986;font-size:13px;text-align:center;margin:25px}
 "use strict";
 var meses=["Enero","Febrero","Marzo"],sucursales=["Centro","Norte","Sur"];
 var productos=[
- {producto:"Cuadernos",categoria:"Papelería",precio:95},
- {producto:"Carpetas",categoria:"Papelería",precio:80},
- {producto:"Resmas",categoria:"Oficina",precio:225},
- {producto:"Bolígrafos",categoria:"Oficina",precio:35},
- {producto:"Calculadoras",categoria:"Tecnología",precio:550},
- {producto:"Memorias USB",categoria:"Tecnología",precio:420}
+ {titulo:"La isla de papel",categoria:"Narrativa",precio:450},
+ {titulo:"Rutas del Caribe",categoria:"No ficción",precio:520},
+ {titulo:"El bosque de letras",categoria:"Infantil",precio:320},
+ {titulo:"Atlas de ideas",categoria:"Académico",precio:790},
+ {titulo:"Historias breves",categoria:"Narrativa",precio:380},
+ {titulo:"Aprendo números",categoria:"Infantil",precio:260}
 ];
 var datos=[];
 for(var m=0;m<meses.length;m++)for(var s=0;s<sucursales.length;s++)for(var p=0;p<productos.length;p++){
  var item=productos[p],unidades=2+(p*3+s*5+m*2)%13,importe=unidades*item.precio;
  datos.push({Fecha:"2026-"+String(m+1).padStart(2,"0")+"-"+String(3+(p*2+s*3)%24).padStart(2,"0"),
- Mes:meses[m],Sucursal:sucursales[s],Categoría:item.categoria,Producto:item.producto,
+ Mes:meses[m],Sucursal:sucursales[s],Categoría:item.categoria,Título:item.titulo,
  Unidades:unidades,PrecioUnitario:item.precio,Importe:importe});
 }
 var raw=document.getElementById("raw");
 document.getElementById("records").innerHTML=datos.map(function(d){
- return "<tr>"+["Fecha","Mes","Sucursal","Categoría","Producto","Unidades","PrecioUnitario","Importe"].map(function(k){
+ return "<tr>"+["Fecha","Mes","Sucursal","Categoría","Título","Unidades","PrecioUnitario","Importe"].map(function(k){
  return "<td>"+String(d[k])+"</td>";}).join("")+"</tr>";
 }).join("");
 document.getElementById("show").onclick=function(){
