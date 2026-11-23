@@ -236,7 +236,7 @@ function beginEdit(k,typed){
  function finishEdit(save){
   if(saved)return;saved=true;
   if(save){snapshot();cells[k]=closeOpenParens(input.value);events.push({type:'cell_edit',cell:k,at:Date.now()-started});}
-  editing=false;inlineOwner=null;formulaPick=null;renderSheet();focusCell(k);warn(save?'Contenido guardado en '+k+'.':'Edición cancelada.');
+  editing=false;inlineOwner=null;formulaPick=null;if(save)showFormulas=false;renderSheet();focusCell(k);warn(save?'Contenido guardado en '+k+'.':'Edición cancelada.');
  }
  input.addEventListener('input',()=>{formulaPick=null;$id('fx').value=input.value;});
  input.addEventListener('keydown',e=>{
@@ -250,7 +250,7 @@ const legacyCommit=commit;
 commit=function(){
  const fx=$id('fx');fx.value=closeOpenParens(fx.value);
  if(editing){const active=sheet.querySelector('input.inline-edit');if(active){active.value=fx.value;active.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));return;}}
- formulaPick=null;legacyCommit();
+ formulaPick=null;showFormulas=false;legacyCommit();
 };
 $id('apply').onclick=()=>commit();
 $id('fx').addEventListener('input',()=>{formulaPick=null;},true);
