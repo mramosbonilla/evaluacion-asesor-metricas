@@ -57,6 +57,9 @@ function applyFunction(fn,args){
  if(name==="COUNTA"||name==="CONTARA")return flat(args).filter(x=>x!==""&&x!=null).length;
  if(name==="AVERAGE"||name==="PROMEDIO"){const a=nums(args);return a.length?a.reduce((x,y)=>x+y,0)/a.length:"#DIV/0!";}
  if(name==="MIN"||name==="MAX"){const a=nums(args);return a.length?(name==="MAX"?Math.max(...a):Math.min(...a)):0;}
+ if(name==="LARGE"||name==="K.ESIMO.MAYOR"){const a=nums(args[0]);const k=Math.trunc(num(args[1]));a.sort((x,y)=>y-x);return k>=1&&k<=a.length?a[k-1]:"#NUM!";}
+ if(name==="SMALL"||name==="K.ESIMO.MENOR"){const a=nums(args[0]);const k=Math.trunc(num(args[1]));a.sort((x,y)=>x-y);return k>=1&&k<=a.length?a[k-1]:"#NUM!";}
+ if(name==="COUNTBLANK"||name==="CONTAR.BLANCO")return flat(args).filter(x=>x===""||x==null).length;
  if(name==="ROUND"||name==="REDONDEAR"){const n=num(args[0]),d=Math.min(12,Math.max(0,num(args[1]??0)));return Number(n.toFixed(d));}
  if(name==="IF"||name==="SI")return Boolean(args[0])?args[1]:args[2]??"";
  if(name==="IFERROR"||name==="SI.ERROR")return isErr(args[0])?args[1]:args[0];
@@ -192,8 +195,11 @@ grade=function(){
   return{cell:key,label:labels[i],ok:hasFormula&&dataLinked&&numericCorrect,
    hasFormula,dataLinked,got:fmt(value),expected:i===2?(targets[i]*100).toFixed(2)+" %":String(targets[i]),input};
  });
+ const helperFormulas=Object.entries(cells).filter(([k,v])=>/^[HK](?:[1-9]\d*)$/.test(k)&&String(v).trimStart().startsWith("=")).map(([cell,input])=>({cell,input}));
  return{score:tests.filter(t=>t.ok).length*25,tests,
   formulas:tests.every(t=>t.hasFormula&&t.dataLinked),
+  methodUsed:helperFormulas.length?"Fórmulas directas y/o auxiliares":"Fórmulas directas o encadenadas",
+  helperFormulas,
   answers:Object.fromEntries(keys.map(key=>[key,{input:cells[key]||"",evaluated:fmt(val(key))}])),
   events:[...events],elapsed_seconds:Math.round((Date.now()-started)/1000),prototype:true};
 };
