@@ -1,51 +1,110 @@
 <!doctype html>
-<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Excel avanzado · Tablas dinámicas | Vista de prueba</title>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jquery-ui-dist@1.13.3/jquery-ui.min.css">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pivottable@2.23.0/dist/pivot.min.css">
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MVM · Tablas dinámicas · Evaluación Asesor de Métricas</title>
 <style>
-:root{font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:#1d2939;background:#eef3f7}
-*{box-sizing:border-box}body{margin:0}header{background:#14543c;color:white;padding:19px max(22px,calc((100vw - 1180px)/2))}
-header h1{font-size:23px;line-height:1.25;margin:3px 0}header p{margin:4px 0;color:#dbf5e7}
-main{max-width:1180px;margin:22px auto;padding:0 17px}.card{border:1px solid #dbe3e8;border-radius:13px;background:white;padding:20px;margin:14px 0;box-shadow:0 2px 7px #0a34300a}
-h2{font-size:20px;margin:0 0 11px}p{line-height:1.5;margin:8px 0}.note{font-size:14px;color:#536579}.notice{border-left:4px solid #1e8a60;background:#e9f7f0;padding:12px;border-radius:5px}
-.actions{display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin:13px 0}button,.button{border:0;border-radius:7px;background:#16673f;color:#fff;padding:10px 15px;cursor:pointer;font-weight:650;font-size:14px}
-.button.alt{color:#155a40;background:#e5f3ea;text-decoration:none}
-#pivot{overflow-x:auto;min-height:150px;padding:2px}.pvtUi{font-size:13px}.pvtUi td{vertical-align:top}
-table.data{border-collapse:collapse;min-width:800px;width:100%;font-size:13px}table.data td,table.data th{border:1px solid #dde4e9;padding:8px;text-align:left}table.data th{background:#f0f5f7;position:sticky;top:0}
-.scroll{overflow-x:auto;max-height:315px}#raw{display:none}
-footer{color:#667986;font-size:13px;text-align:center;margin:25px}
-@media(max-width:640px){header h1{font-size:19px}.card{padding:12px}.pvtUi{font-size:11px}header{padding:16px}}
-</style></head>
-<body>
-<header><h1>MVM · Excel avanzado · Tablas dinámicas</h1><p>MVM · Producción, distribución y venta de libros</p></header>
+:root{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#18302b;background:#eef4f1}
+*{box-sizing:border-box}body{margin:0}header{background:#10613e;color:white;padding:20px max(16px,calc((100vw - 1260px)/2))}
+header h1{font-size:25px;margin:0 0 5px}header p{margin:0;color:#ddf6e9}
+main{max-width:1280px;margin:20px auto;padding:0 16px}
+.card{border:1px solid #d3e3da;background:white;padding:19px;border-radius:11px;box-shadow:0 2px 9px #21453609;margin:13px 0}
+h2{font-size:20px;margin:0 0 10px}h3{font-size:16px;margin:0 0 9px}p{line-height:1.48;margin:8px 0}
+.muted{color:#576c64}.small{font-size:13px}
+.notice{border-left:4px solid #198352;background:#eaf7f0;padding:11px 14px;border-radius:6px}
+.top-actions,.actions{display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin:13px 0}
+button,.button{font:inherit;font-weight:650;border:1px solid #20734d;background:#137245;color:#fff;border-radius:7px;padding:9px 13px;cursor:pointer}
+button.alt,.button.alt{background:#e9f4ed;color:#18583a;border-color:#c0d9c9;text-decoration:none}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid #52a68a;outline-offset:2px}
+.layout{display:grid;grid-template-columns:245px minmax(0,1fr);gap:14px}
+.sidebar{border:1px solid #d7e4dc;border-radius:10px;padding:13px;background:#f8fcf9}
+.sidebar p{font-size:13px;margin-top:0}
+.fields{display:grid;gap:7px}
+.field-chip{background:#fff;border:1px solid #b7d0c0;border-radius:7px;padding:9px 10px;cursor:grab;display:flex;justify-content:space-between;align-items:center;font-size:14px}
+.field-chip:hover{background:#e9f5ed;border-color:#518e67}
+.field-chip:active{cursor:grabbing}
+.field-chip small{color:#628473}
+.builder{min-width:0}
+.zones{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+.zone{border:2px dashed #afcdbc;background:#f8fbf9;border-radius:10px;padding:12px;min-height:117px;transition:.12s}
+.zone.drag-over{border-color:#137245;background:#e2f5ea}
+.zone h3{display:flex;align-items:center;gap:7px;font-size:15px}
+.zone p{font-size:12px;color:#5d7268;margin:6px 0}
+.zone select{width:100%;border:1px solid #a8c3b2;border-radius:7px;padding:9px;background:white;font:inherit;color:#253b2e;min-height:42px}
+.value-tools{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.value-tools select{flex:1 1 140px}
+.value-tools .agg{max-width:160px}
+#filters{border:1px solid #d7e5dc;background:#fff;border-radius:8px;padding:12px;margin-top:12px}
+#filters h3{margin-bottom:6px}#filterItems{display:flex;flex-wrap:wrap;gap:9px;margin-top:7px}
+.filter-choice{display:flex;align-items:center;gap:7px;border:1px solid #c4d8cc;border-radius:7px;padding:7px 10px;background:#f8fbf8;cursor:pointer}
+.filter-choice input{accent-color:#16824d;width:17px;height:17px}
+#status{margin-top:12px;background:#ecf7ee;padding:11px 12px;border-radius:7px;font-size:14px;color:#214f39;font-weight:600}
+#resultShell{max-width:100%;overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}
+#pivotResult{min-width:500px;margin:10px 0}
+#pivotResult th,#pivotResult td{border:1px solid #cadccf;padding:9px;text-align:right;white-space:nowrap}
+#pivotResult th{background:#eaf3ed;color:#234c35}
+#pivotResult th:first-child,#pivotResult td:first-child{text-align:left;position:sticky;left:0;z-index:1;background:#f5faf6}
+#pivotResult thead th:first-child{z-index:2;background:#dcece2}
+#pivotResult .total th,#pivotResult .total td,#pivotResult .total-col{font-weight:750;background:#e6f2e9}
+#pivotResult tbody tr:hover td{background:#f1f8f2}
+#pivotResult .grand{background:#cde8d5;font-weight:800}
+#resultInfo{font-size:13px;color:#546d5c}
+.placeholder{border:1px dashed #c3d9ca;border-radius:9px;background:#f8fcf9;padding:27px;text-align:center;color:#526e5d;margin:14px 0}
+#raw{display:none}#raw table{min-width:720px}
+#raw th,#raw td{padding:7px;border:1px solid #d9e4dc;text-align:left}
+#raw th{background:#eff5f0}#raw .scroll{max-height:340px;overflow:auto}
+#raw thead{position:sticky;top:0}
+.exercise{padding:10px 14px;border:1px solid #d5e6db;border-radius:8px;margin:8px 0}
+.exercise summary{cursor:pointer;font-weight:750;color:#1d603b}
+.exercise p{font-size:14px}footer{text-align:center;color:#647568;font-size:12px;padding:18px}
+@media(max-width:850px){.layout{grid-template-columns:1fr}.fields{grid-template-columns:repeat(auto-fill,minmax(145px,1fr))}}
+@media(max-width:580px){header h1{font-size:20px}.zones{grid-template-columns:1fr}.card{padding:12px}.zone{min-height:94px}main{padding:0 9px}#pivotResult{min-width:480px}}
+</style>
+</head><body>
+<header><h1>MVM · Excel avanzado · Tablas dinámicas</h1><p>Empresa que produce, distribuye y vende libros · Motor de tablas dinámicas de práctica v11</p></header>
 <main>
 <section class="card">
-<h2>Prueba de tablas dinámicas · MVM</h2>
-<p>Dispones de <strong>54 registros de ventas de libros</strong> de ventas de MVM, con campos Mes, Sucursal, Categoría, Título, Unidades, PrecioUnitario e Importe. Parte de una tabla dinámica vacía; elige los campos y la función de agregación.</p>
-<p class="notice"><b>Demostración para validar habilidades.</b> No se envían ni se califican respuestas. Los registros fueron creados exclusivamente para esta prueba.</p>
-<div style="padding:3px 0">
-<p><b>Ejercicio 1 · Construcción de tabla dinámica (8 puntos)</b></p>
-<p>Arrastra <b>Sucursal</b> a las filas, <b>Categoría</b> a las columnas e <b>Importe</b> a valores. Elige <b>Sum</b>. Identifica la sucursal y categoría de mayor importe, además del total general.</p>
-<p><b>Ejercicio 2 · Filtro por período (6 puntos)</b></p>
-<p>Sin cambiar filas, columnas ni agregación, arrastra <b>Mes</b> a filtros y deja visible solo <b>Febrero</b>. Indica el importe de febrero y cuál sucursal tuvo el mayor importe en ese mes.</p>
-<p><b>Ejercicio 3 · Cambio de dimensiones y medida (6 puntos)</b></p>
-<p>Quita el filtro de Mes o reinicia la tabla. Coloca <b>Título</b> en filas, <b>Unidades</b> en valores y utiliza <b>Sum</b>. Indica qué título registró más unidades y cuántas.</p>
-</div>
-<p class="note">Cómo usarlo: los campos se arrastran entre filas, columnas, filtros y valores. En el selector de agregación (aparece en inglés) cambia <b>Count</b> por <b>Sum</b> y selecciona la variable que quieres sumar. <b>Reiniciar</b> vuelve a la tabla vacía. Para arrastrar campos, recomendamos mouse o trackpad; el soporte táctil aún debe comprobarse.</p>
-<div class="actions"><button id="reset">Reiniciar tabla dinámica</button><button id="show" class="button alt">Mostrar registros de origen</button><a class="button alt" href="./vista-previa.html">Volver a la prueba completa</a></div>
+<h2>Ejercicios de evaluación práctica · 20 puntos</h2>
+<p>Analiza <strong>54 registros de ventas de libros de MVM</strong>. Arrastra campos desde la lista a las cuatro áreas o selecciónalos directamente en los menús. Los menús funcionan también en tabletas y teléfonos, sin necesidad de arrastrar.</p>
+<details class="exercise" open><summary>Ejercicio 1 · Construcción de la tabla (8 puntos)</summary>
+<p><strong>Filas:</strong> Sucursal. <strong>Columnas:</strong> Categoría. <strong>Valores:</strong> Importe con operación <strong>Suma</strong>. Indica el total general, la sucursal con más ventas y la categoría de mayor importe.</p></details>
+<details class="exercise"><summary>Ejercicio 2 · Filtrar febrero (6 puntos)</summary>
+<p>Conserva las áreas anteriores. En <strong>Filtros</strong>, elige <strong>Mes</strong> y marca únicamente <strong>Febrero</strong>. Identifica el total de febrero y la sucursal con más ventas ese mes.</p></details>
+<details class="exercise"><summary>Ejercicio 3 · Cambiar la medida (6 puntos)</summary>
+<p>Quita el filtro o pulsa <strong>Reiniciar</strong>. Selecciona <strong>Título</strong> en Filas, deja Columnas sin asignar, elige <strong>Unidades</strong> en Valores y <strong>Suma</strong>. Indica qué título vendió más ejemplares y cuántos.</p></details>
+<div class="notice"><strong>Modo piloto:</strong> los cálculos funcionan localmente en el navegador; todavía no guardan ni califican respuestas en un servidor. Los datos se crearon para la prueba.</div>
+<div class="top-actions"><button id="reset" type="button">Reiniciar áreas</button><button id="showRaw" class="alt" type="button">Mostrar registros de origen</button><a class="button alt" href="./vista-previa.html?v=11">Volver a la evaluación</a></div>
 </section>
-<section class="card"><h2>Área de tabla dinámica</h2><div id="status" class="note">Inicializando herramienta…</div><div id="pivot"></div></section>
-<section class="card" id="raw"><h2>Datos de origen · MVM</h2><p class="note">Datos de práctica creados para la evaluación, sin utilizar información operativa real.</p><div class="scroll"><table class="data"><thead><tr><th>Fecha</th><th>Mes</th><th>Sucursal</th><th>Categoría</th><th>Título</th><th>Unidades</th><th>PrecioUnitario</th><th>Importe</th></tr></thead><tbody id="records"></tbody></table></div></section>
-</main><footer>Proyecto de evaluación técnica MVM · Demostración sin calificación ni almacenamiento de datos personales</footer>
-<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/jquery-ui-dist@1.13.3/jquery-ui.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/pivottable@2.23.0/dist/pivot.min.js"></script>
+<section class="card">
+<h2>Construye tu tabla dinámica</h2>
+<div class="layout">
+<aside class="sidebar">
+<h3>Campos disponibles</h3><p>Arrastra un campo hacia un área o selecciónalo en el menú correspondiente.</p>
+<div id="fields" class="fields"></div>
+</aside>
+<div class="builder">
+<div class="zones">
+<section id="rowZone" class="zone" data-area="row" aria-label="Área de filas">
+<h3>▤ Filas</h3><select id="rowField" aria-label="Seleccionar campo para filas"></select><p>Por ejemplo: Sucursal o Título.</p></section>
+<section id="colZone" class="zone" data-area="col" aria-label="Área de columnas">
+<h3>▥ Columnas</h3><select id="colField" aria-label="Seleccionar campo para columnas"></select><p>Por ejemplo: Categoría.</p></section>
+<section id="valueZone" class="zone" data-area="value" aria-label="Área de valores">
+<h3>∑ Valores</h3><div class="value-tools"><select id="valueField" aria-label="Seleccionar campo numérico de valores"></select><select id="aggregate" class="agg" aria-label="Seleccionar operación de agregación"><option value="sum">Suma</option><option value="count">Conteo</option><option value="avg">Promedio</option></select></div><p>Selecciona Importe o Unidades y cómo agruparlos.</p></section>
+<section id="filterZone" class="zone" data-area="filter" aria-label="Área de filtros">
+<h3>▽ Filtros</h3><select id="filterField" aria-label="Seleccionar campo para filtros"></select><p>Por ejemplo: Mes, para dejar solo Febrero.</p></section>
+</div>
+<div id="filters"><h3>Opciones del filtro</h3><div id="filterDescription" class="muted small">Selecciona un campo en el área Filtros.</div><div id="filterItems"></div><div class="actions"><button id="checkAll" class="alt" type="button">Mostrar todos</button><button id="clearAll" class="alt" type="button">Quitar todos</button></div></div>
+<div id="status" role="status" aria-live="polite">Selecciona un campo numérico en Valores para comenzar.</div>
+</div>
+</div>
+</section>
+<section class="card"><h2>Resultados de la tabla dinámica</h2><div id="resultInfo"></div><div id="resultShell"><div id="resultPlaceholder" class="placeholder">Selecciona un campo en <strong>Valores</strong>, por ejemplo <strong>Importe</strong>, para ver los resultados.</div><table id="pivotResult" aria-label="Resultados de la tabla dinámica" hidden></table></div></section>
+<section class="card" id="raw"><h2>Registros de origen</h2><p class="muted small">Datos para practicar; no proceden de operaciones reales.</p><div class="scroll"><table><thead><tr><th>Fecha</th><th>Mes</th><th>Sucursal</th><th>Categoría</th><th>Título</th><th>Unidades</th><th>PrecioUnitario</th><th>Importe</th></tr></thead><tbody id="rawRows"></tbody></table></div></section>
+</main><footer>MVM · Evaluación técnica piloto · Los datos y cálculos permanecen en este dispositivo.</footer>
 <script>
-(function(){
-"use strict";
-var meses=["Enero","Febrero","Marzo"],sucursales=["Centro","Norte","Sur"];
-var productos=[
+(function(){"use strict";
+const $=id=>document.getElementById(id);
+const months=["Enero","Febrero","Marzo"],stores=["Centro","Norte","Sur"];
+const books=[
  {titulo:"La isla de papel",categoria:"Narrativa",precio:450},
  {titulo:"Rutas del Caribe",categoria:"No ficción",precio:520},
  {titulo:"El bosque de letras",categoria:"Infantil",precio:320},
@@ -53,36 +112,127 @@ var productos=[
  {titulo:"Historias breves",categoria:"Narrativa",precio:380},
  {titulo:"Aprendo números",categoria:"Infantil",precio:260}
 ];
-var datos=[];
-for(var m=0;m<meses.length;m++)for(var s=0;s<sucursales.length;s++)for(var p=0;p<productos.length;p++){
- var item=productos[p],unidades=2+(p*3+s*5+m*2)%13,importe=unidades*item.precio;
- datos.push({Fecha:"2026-"+String(m+1).padStart(2,"0")+"-"+String(3+(p*2+s*3)%24).padStart(2,"0"),
- Mes:meses[m],Sucursal:sucursales[s],Categoría:item.categoria,Título:item.titulo,
- Unidades:unidades,PrecioUnitario:item.precio,Importe:importe});
+const rows=[];
+for(let m=0;m<months.length;m++)for(let s=0;s<stores.length;s++)for(let p=0;p<books.length;p++){
+ const book=books[p],units=2+(p*3+s*5+m*2)%13;
+ rows.push({Fecha:"2026-"+String(m+1).padStart(2,"0")+"-"+String(3+(p*2+s*3)%24).padStart(2,"0"),Mes:months[m],Sucursal:stores[s],Categoría:book.categoria,Título:book.titulo,Unidades:units,PrecioUnitario:book.precio,Importe:units*book.precio});
 }
-var raw=document.getElementById("raw");
-document.getElementById("records").innerHTML=datos.map(function(d){
- return "<tr>"+["Fecha","Mes","Sucursal","Categoría","Título","Unidades","PrecioUnitario","Importe"].map(function(k){
- return "<td>"+String(d[k])+"</td>";}).join("")+"</tr>";
-}).join("");
-document.getElementById("show").onclick=function(){
- raw.style.display=raw.style.display==="block"?"none":"block";
- this.textContent=raw.style.display==="block"?"Ocultar registros de origen":"Mostrar registros de origen";
-};
-function iniciar(){
- var status=document.getElementById("status");
- if(!window.jQuery || !window.jQuery.fn || !window.jQuery.fn.pivotUI){
-  status.textContent="No se cargó la biblioteca de tablas dinámicas. Comprueba tu conexión a Internet y recarga la página.";
+const fields=["Fecha","Mes","Sucursal","Categoría","Título","Unidades","PrecioUnitario","Importe"],measures=["Unidades","PrecioUnitario","Importe"];
+let lastFilter="",selectedFilterValues=new Set();
+function option(value,label){const o=document.createElement("option");o.value=value;o.textContent=label;return o;}
+function fillSelect(id,numericOnly=false){
+ const el=$(id);el.append(option("","— Sin seleccionar —"));
+ for(const name of numericOnly?measures:fields)el.append(option(name,name));
+}
+fillSelect("rowField");fillSelect("colField");fillSelect("valueField",true);fillSelect("filterField");
+for(const name of fields){
+ const b=document.createElement("div");b.className="field-chip";b.draggable=true;b.tabIndex=0;b.setAttribute("role","listitem");b.textContent=name;
+ const type=document.createElement("small");type.textContent=measures.includes(name)?"123":"abc";b.append(type);
+ b.addEventListener("dragstart",e=>{e.dataTransfer.setData("text/plain",name);e.dataTransfer.effectAllowed="copy";});
+ $("fields").append(b);
+}
+for(const area of ["row","col","value","filter"]){
+ const zone=$(area+"Zone"),select=$(area+"Field");
+ zone.addEventListener("dragover",e=>{e.preventDefault();zone.classList.add("drag-over");});
+ zone.addEventListener("dragleave",()=>zone.classList.remove("drag-over"));
+ zone.addEventListener("drop",e=>{
+  e.preventDefault();zone.classList.remove("drag-over");
+  const name=e.dataTransfer.getData("text/plain");
+  if(!fields.includes(name))return;
+  if(area==="value"&&!measures.includes(name)){setStatus("Para Valores selecciona un campo numérico: Unidades, PrecioUnitario o Importe.");return;}
+  select.value=name;select.dispatchEvent(new Event("change",{bubbles:true}));
+ });
+}
+function valuesFor(field){return [...new Set(rows.map(r=>String(r[field])))].sort((a,b)=>{
+ if(field==="Mes")return months.indexOf(a)-months.indexOf(b);
+ return a.localeCompare(b,"es",{numeric:true});
+});}
+function resetFilterControls(){
+ const field=$("filterField").value,container=$("filterItems");
+ container.replaceChildren();
+ if(field!==lastFilter){selectedFilterValues=new Set(field?valuesFor(field):[]);lastFilter=field;}
+ $("filterDescription").textContent=field?"Selecciona qué valores de "+field+" deben aparecer en la tabla.":"Selecciona un campo en Filtros para activar sus opciones.";
+ for(const val of field?valuesFor(field):[]){
+  const label=document.createElement("label");label.className="filter-choice";
+  const input=document.createElement("input");input.type="checkbox";input.value=val;input.checked=selectedFilterValues.has(val);
+  input.addEventListener("change",()=>{
+   input.checked?selectedFilterValues.add(val):selectedFilterValues.delete(val);
+   calculate();
+  });
+  const title=document.createElement("span");title.textContent=val;label.append(input,title);container.append(label);
+ }
+ $("checkAll").disabled=!field;$("clearAll").disabled=!field;
+}
+function setStatus(s){$("status").textContent=s;}
+function filtered(){
+ const field=$("filterField").value;
+ return field?rows.filter(r=>selectedFilterValues.has(String(r[field]))):rows;
+}
+function aggregator(items,field,op){
+ if(op==="count")return items.length;
+ if(!items.length)return 0;
+ const total=items.reduce((n,r)=>n+Number(r[field]||0),0);
+ return op==="avg"?total/items.length:total;
+}
+function fmt(n){
+ if(n===null||!Number.isFinite(n))return "—";
+ return new Intl.NumberFormat("es-DO",{maximumFractionDigits:2}).format(n);
+}
+function putCell(tr,tag,text,cl){
+ const td=document.createElement(tag);td.textContent=text;if(cl)td.className=cl;tr.append(td);return td;
+}
+function calculate(){
+ const rowField=$("rowField").value,colField=$("colField").value,measure=$("valueField").value,op=$("aggregate").value;
+ const all=filtered(),tab=$("pivotResult"),placeholder=$("resultPlaceholder"),info=$("resultInfo");
+ if(!measure){
+  tab.hidden=true;tab.replaceChildren();placeholder.hidden=false;info.textContent="";
+  setStatus("Elige un campo en Valores para empezar. Puedes arrastrar campos o usar los menús.");
   return;
  }
- try {
-  window.jQuery("#pivot").pivotUI(datos,{
-   rows:[],cols:[],vals:[],aggregatorName:"Count",rendererName:"Table",
-   sorters:{Mes:window.jQuery.pivotUtilities.sortAs(meses)},menuLimit:200},true);
-  status.textContent="Motor listo · "+datos.length+" registros de ventas de libros de MVM. Sigue los tres ejercicios y arrastra los campos para construir tu tabla.";
- }catch(err){status.textContent="Error al iniciar el motor: "+String(err&&err.message||err);}
+ tab.hidden=false;placeholder.hidden=true;tab.replaceChildren();
+ let rowValues=rowField?valuesFor(rowField).filter(x=>all.some(r=>String(r[rowField])===x)):["Total"];
+ let colValues=colField?valuesFor(colField).filter(x=>all.some(r=>String(r[colField])===x)):[];
+ const header=document.createElement("thead"),top=document.createElement("tr");
+ putCell(top,"th",rowField||"Registros");
+ for(const x of colValues)putCell(top,"th",x);
+ putCell(top,"th","Total general","total-col");header.append(top);tab.append(header);
+ const body=document.createElement("tbody");
+ for(const rv of rowValues){
+  const tr=document.createElement("tr"),set=rowField?all.filter(r=>String(r[rowField])===rv):all;
+  putCell(tr,"th",rv);
+  for(const cv of colValues)putCell(tr,"td",fmt(aggregator(set.filter(r=>String(r[colField])===cv),measure,op)));
+  putCell(tr,"td",fmt(aggregator(set,measure,op)),"total-col");
+  body.append(tr);
+ }
+ const totals=document.createElement("tr");totals.className="total";
+ putCell(totals,"th","Total general");
+ for(const cv of colValues)putCell(totals,"td",fmt(aggregator(all.filter(r=>String(r[colField])===cv),measure,op)));
+ putCell(totals,"td",fmt(aggregator(all,measure,op)),"grand");
+ if(rowField)body.append(totals);
+ tab.append(body);
+ const label=op==="sum"?"Suma":op==="avg"?"Promedio":"Conteo";
+ info.textContent=all.length+" de "+rows.length+" registros visibles · "+label+" de "+measure+(rowField?" por "+rowField:"")+(colField?" y "+colField:"");
+ setStatus("Tabla dinámica calculada: "+all.length+" registros · "+label+" de "+measure+". Puedes cambiar campos y filtros.");
 }
-document.getElementById("reset").onclick=iniciar;
-if(document.readyState==="complete")iniciar();else window.addEventListener("load",iniciar);
+function onUpdate(){
+ resetFilterControls();calculate();
+}
+for(const id of ["rowField","colField","valueField","aggregate","filterField"])$(id).addEventListener("change",onUpdate);
+$("checkAll").onclick=()=>{selectedFilterValues=new Set(valuesFor($("filterField").value));resetFilterControls();calculate();};
+$("clearAll").onclick=()=>{selectedFilterValues.clear();resetFilterControls();calculate();};
+$("reset").onclick=()=>{
+ for(const id of ["rowField","colField","valueField","filterField"])$(id).value="";
+ $("aggregate").value="sum";lastFilter="";selectedFilterValues.clear();onUpdate();
+};
+$("showRaw").onclick=()=>{
+ const raw=$("raw"),open=raw.style.display==="block";
+ raw.style.display=open?"none":"block";$("showRaw").textContent=open?"Mostrar registros de origen":"Ocultar registros de origen";
+};
+for(const r of rows){
+ const tr=document.createElement("tr");
+ for(const field of fields){const td=document.createElement("td");td.textContent=String(r[field]);tr.append(td);}
+ $("rawRows").append(tr);
+}
+onUpdate();
 })();
 </script></body></html>
