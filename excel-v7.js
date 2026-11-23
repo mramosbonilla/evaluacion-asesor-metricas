@@ -70,7 +70,7 @@ function applyFunction(fn,args){
  }
  if(name==="SUMIFS"||name==="SUMAR.SI.CONJUNTO"){
   if(args.length<3||args.length%2!==1)return "#ERROR";
-  const s=series(args[0]);return s.reduce((z,v,i)=>z+(args.slice(1).every((x,j)=>j%2===0?true:matched(args[j-1],x,i))?(num(v)||0):0),0);
+  const s=series(args[0]);return s.reduce((z,v,i)=>z+(args.slice(1).every((x,j)=>j%2===0?true:matched(args[j],x,i))?(num(v)||0):0),0);
  }
  if(name==="INDEX"||name==="INDICE"){
   const a=series(args[0]||[]),n=Math.trunc(num(args[1]??1));
@@ -134,7 +134,7 @@ function calculate(expr,trail){
 }
 val=function(address,trail){return calcCell(address,trail);};
 const existingCommit=commit;
-commit=function(){existingCommit();if(typeof showFormulas!=="undefined"&&showFormulas){showFormulas=false;renderSheet();document.getElementById("status").textContent="Fórmula guardada. Mostrando resultados calculados; puedes activar «Mostrar fórmulas» para revisarlas.";}}
+commit=function(){existingCommit();if(typeof window.excelShowResults==="function"){window.excelShowResults();document.getElementById("status").textContent="Fórmula guardada. Mostrando su resultado calculado; usa «Mostrar fórmulas» para ver la expresión.";}}
 byId("apply").onclick=()=>commit();
 const oldGrade=grade;
 grade=function(){
