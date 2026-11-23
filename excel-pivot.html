@@ -72,7 +72,7 @@ table{border-collapse:collapse;width:100%;font-size:13px}
 <details class="exercise"><summary>Ejercicio 3 · Cambiar la medida (6 puntos)</summary>
 <p>Quita el filtro o pulsa <strong>Reiniciar</strong>. Selecciona <strong>Título</strong> en Filas, deja Columnas sin asignar, elige <strong>Unidades</strong> en Valores y <strong>Suma</strong>. Indica qué título vendió más ejemplares y cuántos.</p></details>
 <div class="notice"><strong>Modo piloto:</strong> los cálculos funcionan localmente en el navegador; todavía no guardan ni califican respuestas en un servidor. Los datos se crearon para la prueba.</div>
-<div class="top-actions"><button id="reset" type="button">Reiniciar áreas</button><button id="showRaw" class="alt" type="button">Mostrar registros de origen</button><button id="finishPivot" type="button">Terminar práctica de tabla dinámica</button><a class="button alt" href="./vista-previa.html?etapa=5&amp;v=11">Continuar a SQL</a></div>
+<div class="top-actions"><button id="reset" type="button">Reiniciar áreas</button><button id="showRaw" class="alt" type="button">Mostrar registros de origen</button><button id="finishPivot" type="button">Terminar práctica de tabla dinámica</button><a id="backToEvaluation" class="button alt" href="./vista-previa.html?etapa=4&amp;v=12">Volver a la etapa de tabla dinámica</a><a id="continueToSQL" class="button alt" href="./vista-previa.html?etapa=5&amp;v=12">Continuar a SQL</a></div>
 </section>
 <section class="card">
 <h2>Construye tu tabla dinámica</h2>
@@ -233,13 +233,20 @@ for(const r of rows){
  for(const field of fields){const td=document.createElement("td");td.textContent=String(r[field]);tr.append(td);}
  $("rawRows").append(tr);
 }
+const inEvaluation=new URLSearchParams(location.search).get("embed")==="1" && window.parent!==window;
+function finishAndContinue(){
+ if(inEvaluation)window.parent.postMessage({type:"MVM_PIVOT_COMPLETE",version:11,rows:rows.length,completedAt:Date.now()},location.origin);
+ else location.href="./vista-previa.html?etapa=5&v=12";
+}
 $("finishPivot").onclick=()=>{
- if(!$("valueField").value){alert("Primero utiliza al menos un campo numérico en el área Valores para comprobar la tabla dinámica.");return;}
- if(!confirm("¿Terminar solamente la práctica de tablas dinámicas y continuar con SQL? No se finalizará toda la evaluación."))return;
- if(new URLSearchParams(location.search).get("embed")==="1" && window.parent!==window){
-  window.parent.postMessage({type:"MVM_PIVOT_COMPLETE",version:11,rows:rows.length,completedAt:Date.now()},location.origin);
- }else{location.href="./vista-previa.html?etapa=5&v=11";}
+ if(!$("valueField").value){alert("Primero selecciona y utiliza un campo numérico en Valores.");return;}
+ if(!confirm("¿Terminar la práctica de tablas dinámicas y continuar a SQL? La evaluación general seguirá abierta."))return;
+ finishAndContinue();
 };
+$("continueToSQL").addEventListener("click",event=>{
+ if(!inEvaluation)return;event.preventDefault();finishAndContinue();
+});
+if(inEvaluation)$("backToEvaluation").hidden=true;
 onUpdate();
 })();
 </script></body></html>
