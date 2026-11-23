@@ -11,7 +11,7 @@ function calcCell(address,trail){
  const k=String(address).toUpperCase().replace(/\$/g,"");
  const seen=trail||new Set();
  if(seen.has(k))return "#CIRC";
- if(!/^[A-K](?:[1-9]|1\d|2[0-5])$/.test(k))return "#REF!";
+ if(!/^[A-K][1-9]\d*$/.test(k)||Number(k.slice(1))>R)return "#REF!";
  const raw=String(cells[k]??"");
  if(!raw.startsWith("="))return /^-?\d+(?:\.\d+)?$/.test(raw)?Number(raw):raw;
  const next=new Set(seen);next.add(k);
@@ -136,23 +136,81 @@ val=function(address,trail){return calcCell(address,trail);};
 const existingCommit=commit;
 commit=function(){existingCommit();if(typeof window.excelShowResults==="function"){window.excelShowResults();document.getElementById("status").textContent="Fórmula guardada. Mostrando su resultado calculado; usa «Mostrar fórmulas» para ver la expresión.";}}
 byId("apply").onclick=()=>commit();
+// A formula may reference the original A:G records directly, or use helper cells
+// containing formulas that ultimately depend on those records. Exact formula text
+// is never compared; different valid strategies receive the same score.
+function usesSourceData(address,visiting=new Set()){
+ const key=String(address).replace(/\$/g,"").toUpperCase();
+ if(visiting.has(key))return false;
+ visiting.add(key);
+ const input=String(cells[key]??"").trim();
+ if(!input.startsWith("="))return false;
+ let refs=[];
+ for(const match of input.matchAll(/\$?([A-K])\$?([1-9]\d*)/gi)){
+  const column=match[1].toUpperCase(),row=Number(match[2]);
+  if(column<="G"&&row>=2&&row<=DATA.length)return true;
+  if(row<=R)refs.push(column+row);
+ }
+ // Full-column references, for example E:E and F:F.
+ for(const match of input.matchAll(/(?:^|[^A-Z\d])([A-K])\s*:\s*\1(?=[^A-Z\d]|$)/gi)){
+  if(match[1].toUpperCase()<="G")return true;
+ }
+ // Ranges in helper columns: K2:K4 -> check all K2, K3 and K4.
+ for(const match of input.matchAll(/\$?([A-K])\$?([1-9]\d*)\s*:\s*\$?([A-K])\$?([1-9]\d*)/gi)){
+  const c1=match[1].toUpperCase().charCodeAt(0)-65,c2=match[3].toUpperCase().charCodeAt(0)-65;
+  const r1=Number(match[2]),r2=Number(match[4]);
+  for(let y=Math.min(r1,r2);y<=Math.min(R,Math.max(r1,r2));y++)
+   for(let x=Math.min(c1,c2);x<=Math.max(c1,c2);x++)
+    refs.push(col(x)+y);
+ }
+ return refs.some(ref=>usesSourceData(ref,new Set(visiting)));
+}
+function taskExpectations(){
+ const records=DATA.slice(1);
+ const created=records.reduce((sum,row)=>sum+Number(row[4]||0),0);
+ const canceled=records.reduce((sum,row)=>sum+(row[5]==="Cancelada"?Number(row[4]||0):0),0);
+ const completeCounts={};
+ for(const row of records)if(row[5]==="Completada")
+  completeCounts[row[1]]=(completeCounts[row[1]]||0)+Number(row[4]||0);
+ const completions=Object.values(completeCounts);
+ return{created,canceled,cancellationRate:created?canceled/created:0,
+  channelGap:completions.length?Math.max(...completions)-Math.min(...completions):0};
+}
 const oldGrade=grade;
 grade=function(){
- const keys=["J3","J4","J5","J7"],expected=[12,3,.25,"directo"];
- const labels=["Total de pedidos creados","Total de pedidos cancelados","Tasa global de cancelación","Canal con más pedidos completados"];
- const tests=keys.map((k,i)=>{
-  const input=String(cells[k]??""),v=val(k),isFormula=input.trimStart().startsWith("=");
-  const okResult=i===3?String(v).trim().toLowerCase()===expected[i]:i===2?typeof v==="number"&&Math.abs(v-expected[i])<1e-9:v===expected[i];
-  return{cell:k,label:labels[i],ok:isFormula&&okResult,hasFormula:isFormula,got:fmt(v),expected:["12","3","25 % (0.25)","Directo"][i],input};
+ const expected=taskExpectations(),keys=["J3","J4","J5","J7"],
+  targets=[expected.created,expected.canceled,expected.cancellationRate,expected.channelGap];
+ const labels=["Pedidos creados","Pedidos cancelados","Tasa global de cancelación","Brecha entre el mayor y menor canal (pedidos completados)"];
+ const tests=keys.map((key,i)=>{
+  const input=String(cells[key]??""),value=val(key),
+   hasFormula=input.trim().startsWith("="),
+   dataLinked=hasFormula&&usesSourceData(key),
+   validNumber=typeof value==="number"&&Number.isFinite(value),
+   numericCorrect=validNumber&&(i===2?
+    Math.abs(value-targets[i])<1e-8||Math.abs(value-targets[i]*100)<1e-7:
+    Math.abs(value-targets[i])<1e-8);
+  return{cell:key,label:labels[i],ok:hasFormula&&dataLinked&&numericCorrect,
+   hasFormula,dataLinked,got:fmt(value),expected:i===2?(targets[i]*100).toFixed(2)+" %":String(targets[i]),input};
  });
- const score=tests.reduce((a,t)=>a+(t.ok?25:0),0);
- return{score,tests,formulas:tests.every(t=>t.hasFormula),answers:Object.fromEntries(keys.map(k=>[k,{input:cells[k]||"",evaluated:fmt(val(k))}])),events:[...events],elapsed_seconds:Math.round((Date.now()-started)/1000),prototype:true};
+ return{score:tests.filter(t=>t.ok).length*25,tests,
+  formulas:tests.every(t=>t.hasFormula&&t.dataLinked),
+  answers:Object.fromEntries(keys.map(key=>[key,{input:cells[key]||"",evaluated:fmt(val(key))}])),
+  events:[...events],elapsed_seconds:Math.round((Date.now()-started)/1000),prototype:true};
 };
 function clearForWork(){if(typeof showFormulas!=="undefined"){showFormulas=false;renderSheet();}}
 function onFinish(){
  if(finished)return;
- const missing=["J3","J4","J5","J7"].filter(k=>!String(cells[k]??"").trimStart().startsWith("="));
- if(missing.length){alert("Debes completar las cuatro respuestas finales utilizando fórmulas, no números o textos escritos directamente. Revisa: "+missing.join(", ")+". Puedes utilizar las celdas libres H y K para cálculos auxiliares.");select(missing[0]);return;}
+ const required=["J3","J4","J5","J7"];
+ const missing=required.filter(k=>!String(cells[k]??"").trim().startsWith("="));
+ if(missing.length){
+  alert("Las cuatro respuestas finales deben contener fórmulas. No puedes escribir el resultado como número ni texto. Faltan: "+missing.join(", ")+".");
+  select(missing[0]);return;
+ }
+ const unrelated=required.filter(k=>!usesSourceData(k));
+ if(unrelated.length){
+  alert("La fórmula debe calcularse a partir de los datos de la hoja, directamente o mediante otras celdas con fórmulas. No se aceptan fórmulas de solo números o textos fijos. Revisa: "+unrelated.join(", ")+".");
+  select(unrelated[0]);return;
+ }
  if(!confirm("¿Confirmas que has terminado la práctica de Excel? Podrás continuar con las demás secciones de la evaluación."))return;
  finished=true;clearInterval(interval);result=grade();
  if(window.parent!==window&&new URLSearchParams(location.search).get("embed")==="1"){
@@ -161,7 +219,7 @@ function onFinish(){
   return;
  }
  const list=result.tests.map(t=>'<p><strong>'+(t.ok?"✓":"✗")+" "+t.label+'</strong> — Respuesta: '+escapeHTML(t.got)+' · Esperado: '+t.expected+' · '+(t.hasFormula?"Se usó fórmula":"Sin fórmula")+'</p>').join("");
- byId("results").innerHTML='<div class="result"><h2>Práctica de Excel completada</h2><p>Resultado diagnóstico: '+result.score+'/100 (solo piloto).</p><p>Esta pantalla no termina la evaluación general. Regresa a la prueba principal para continuar con tablas dinámicas, SQL y Python.</p><a class="btn" href="./vista-previa.html?etapa=3&amp;v=12">Volver a la etapa de Excel</a> <a class="btn" href="./vista-previa.html?etapa=4&amp;v=12">Continuar a tablas dinámicas</a></div>'+list;
+ byId("results").innerHTML='<div class="result"><h2>Práctica de Excel completada</h2><p>Resultado diagnóstico: '+result.score+'/100 (solo piloto).</p><p>Esta pantalla no termina la evaluación general. Regresa a la prueba principal para continuar con tablas dinámicas, SQL y Python.</p><a class="btn" href="./vista-previa.html?etapa=3&amp;v=15">Volver a la etapa de Excel</a> <a class="btn" href="./vista-previa.html?etapa=4&amp;v=15">Continuar a tablas dinámicas</a></div>'+list;
  show("done");
 }
 finish=onFinish;
@@ -171,12 +229,12 @@ const hint=byId("instructions").querySelector(".task");
 if(hint){
  const extra=document.createElement("p");
  extra.className="hint";
- extra.innerHTML="<strong>Obligatorio:</strong> las respuestas finales J3, J4, J5 y J7 deben contener fórmulas (comenzar con =), no valores escritos manualmente. Puedes usar las celdas libres de las columnas H y K para operaciones auxiliares; sus resultados pueden alimentar las fórmulas finales. Se admiten SUM, COUNTIF, SUMIF, COUNTIFS, SUMIFS, IF, MAX, INDEX, MATCH, XLOOKUP y referencias entre celdas.";
+ extra.innerHTML="<strong>Reglas:</strong> las respuestas finales de J3, J4, J5 y J7 deben ser fórmulas que calculen los valores usando la base de pedidos, sin escribir resultados manuales. Son válidos distintos métodos y tantas celdas auxiliares de H y K como necesites. En J7 debes calcular una diferencia numérica entre los totales de pedidos <em>completados</em> del canal con más y el de menos. No se exige una función determinada.";
  hint.appendChild(extra);
 }
-const reminder=document.createElement("div");reminder.className="task";reminder.id="formulaRules";reminder.innerHTML="<strong>Importante:</strong> completa J3, J4, J5 y J7 con fórmulas que empiecen por <code>=</code>. Puedes realizar cálculos auxiliares en H y K; el resultado final debe venir de una fórmula. Para identificar el canal líder puedes utilizar <code>COUNTIFS</code>, <code>INDEX</code>, <code>MATCH</code> o <code>XLOOKUP</code> combinados con celdas auxiliares.";
+const reminder=document.createElement("div");reminder.className="task";reminder.id="formulaRules";reminder.innerHTML="<strong>Reglas de Excel:</strong> base de 240 pedidos de libros. Las cuatro respuestas finales (<code>J3</code>, <code>J4</code>, <code>J5</code>, <code>J7</code>) deben contener fórmulas que dependan de los datos originales. No se admiten cifras tecleadas ni expresiones de solo constantes. Puedes combinar funciones, usar las columnas H y K como auxiliares y elegir cualquier procedimiento compatible que produzca el resultado correcto. <strong>J7:</strong> diferencia numérica de pedidos completados entre el canal con más y el canal con menos.";
 byId("excel").querySelector(".ribbon").before(reminder);
-const badge=byId("excel").querySelector(".badge");if(badge)badge.textContent="Simulador Excel · v14";
+const badge=byId("excel").querySelector(".badge");if(badge)badge.textContent="Simulador Excel · v15";
 if(new URLSearchParams(location.search).get("embed")==="1"){
  // Mantener la evaluación principal abierta mientras el candidato trabaja.
  byId("candidate").value="Participante de prueba";
