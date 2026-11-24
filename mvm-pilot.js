@@ -23,6 +23,7 @@ if(!current.feedback)current.feedback={device:"",clarity:"",navigation:"",techni
 if(INVITE_CODE)current.inviteCode=INVITE_CODE;
 if(!current.monitoring)current.monitoring={consentAt:null,parent:null,tools:{}};
 if(!current.monitoring.tools)current.monitoring.tools={};
+window.__MVMMonitoringConsentGranted=!!current.monitoring.consentAt;
 if(window.MVMInteractionMonitor){
  window.MVMInteractionMonitor.restore(current.monitoring.parent);
  window.MVMInteractionMonitor.onChange=snapshot=>{
@@ -203,6 +204,7 @@ function start(){
   alert("Antes de empezar, revisa y acepta el aviso de registro de interacciones.");return;
  }
  if(!current.monitoring.consentAt)current.monitoring.consentAt=now();
+ window.__MVMMonitoringConsentGranted=true;
  if(window.MVMInteractionMonitor)window.MVMInteractionMonitor.start();
  if(!current.startedAt)current.startedAt=now();
  save();go(1);
@@ -305,6 +307,7 @@ window.addEventListener("message",event=>{
  if(event.origin!==location.origin||!event.data||!current.startedAt||current.finishedAt)return;
  const msg=event.data;
  if(msg.type==="MVM_MONITOR_UPDATE"&&msg.version===1){
+  if(!current.monitoring.consentAt)return;
   const source=String(msg.source||""),sid=String(msg.sessionId||"");
   if(!["excel","sql","python","pivot"].includes(source)||!/^S[a-z0-9-]+$/i.test(sid)||!msg.snapshot||msg.snapshot.source!==source)return;
   current.monitoring.tools[source] ||= {};
