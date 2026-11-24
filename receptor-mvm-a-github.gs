@@ -24,7 +24,7 @@ function mvmReceipt_(message) {
   const safe = JSON.stringify(message).replace(/</g, "\\u003c");
   const target = JSON.stringify(MVM_ALLOWED_ORIGIN);
   const body = '<!doctype html><html><head><meta charset="utf-8"></head><body>' +
-    '<script>window.parent.postMessage(' + safe + ',' + target + ');' +
+    '<script>window.top.postMessage(' + safe + ',' + target + ');' +
     '</scr' + 'ipt></body></html>';
   return HtmlService.createHtmlOutput(body)
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
@@ -83,7 +83,12 @@ function doPost(e) {
       const path="entregas/"+yyyy+"/"+attemptId+".json";
       const existing=mvmApiRequest_(token,repo,"GET",path);
       if(existing.status===200) {
-        // Una entrega ya recibida no se sobrescribe desde el navegador.
+        // No sobrescribir resultados. Solo confirmar si los bytes coinciden,
+        // por ejemplo después de reintentar una entrega idéntica.
+        const saved=existing.result.content
+          ?Utilities.newBlob(Utilities.base64Decode(String(existing.result.content).replace(/\\s/g,""))).getDataAsString("UTF-8")
+          :null;
+        if(saved!==raw)throw Error("Intento recibido con datos diferentes");
         ok=true;
       } else if(existing.status===404) {
         const encoded=Utilities.base64Encode(Utilities.newBlob(raw).getBytes());
