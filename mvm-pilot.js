@@ -182,6 +182,10 @@ render=function(){
   area.insertAdjacentHTML("beforeend",'<div class="question" style="border:2px solid #c87923;background:#fff8eb"><h3>IMPORTANTE · Prueba individual de conocimientos</h3><p><strong>Esta evaluación comprueba tus conocimientos y razonamiento, no tu habilidad para obtener respuestas de herramientas de inteligencia artificial.</strong> No se permite consultar ChatGPT, Copilot, Gemini, otras IA, sitios web, personas o dispositivos externos para recibir, copiar y pegar, o transcribir respuestas. Debes resolver cada actividad por tus propios medios, utilizando únicamente los datos y herramientas incorporados en esta evaluación. <strong>Incumplir estas reglas constituye una falta a la integridad de la prueba.</strong></p><label style="display:flex;gap:10px;align-items:flex-start"><input id="integrityAgreement" type="checkbox" style="margin-top:4px"> He leído las reglas, me comprometo a resolver la evaluación sin ayuda externa y acepto el registro de mis respuestas e interacciones dentro de la prueba con fines de integridad.</label></div>');
   const integrity=document.getElementById("integrityAgreement");if(integrity)integrity.checked=!!current.integrityAcknowledgedAt;
   const startButton=document.getElementById("beginPilot");if(startButton)area.append(startButton);
+  if(startButton&&window.MVMDelivery?.secureRequired?.()&&!window.MVMDelivery?.available?.()){
+   startButton.disabled=true;startButton.textContent="Evaluación aún no habilitada";
+   area.insertAdjacentHTML("beforeend",'<p class="muted" role="status">Esta evaluación todavía no está disponible para ser presentada. Contacta al responsable del proceso.</p>');
+  }
   document.getElementById("beginPilot").onclick=()=>start();
  }
  if(at===1){
