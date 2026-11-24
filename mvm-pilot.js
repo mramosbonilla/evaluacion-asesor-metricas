@@ -39,6 +39,8 @@ function restore(){
  excelPilotReport=current.excel||null;pivotPilotReport=current.pivot||null;
  const forced=new URLSearchParams(location.search).has("etapa");
  at=Math.max(0,Math.min(8,forced?at:(Number(current.stage)||0)));
+ // Los invitados no pueden saltarse la bienvenida y el aviso de monitoreo mediante una URL directa.
+ if(INVITE_CODE&&!current.startedAt)at=0;
 }
 restore();
 function monitoringSummary(){
