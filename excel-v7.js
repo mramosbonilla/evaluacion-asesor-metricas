@@ -240,7 +240,7 @@ if(hint){
 }
 const reminder=document.createElement("div");reminder.className="task";reminder.id="formulaRules";reminder.innerHTML="<strong>Reglas de Excel:</strong> base de 240 pedidos de libros. Las cuatro respuestas finales (<code>J3</code>, <code>J4</code>, <code>J5</code>, <code>J7</code>) deben contener fórmulas que dependan de los datos originales. No se admiten cifras tecleadas ni expresiones de solo constantes. Puedes combinar funciones, usar las columnas H y K como auxiliares y elegir cualquier procedimiento compatible que produzca el resultado correcto. <strong>J7:</strong> diferencia numérica de pedidos completados entre el canal con más y el canal con menos.";
 byId("excel").querySelector(".ribbon").before(reminder);
-const badge=byId("excel").querySelector(".badge");if(badge)badge.textContent="Simulador Excel · v15";
+const badge=byId("excel").querySelector(".badge");if(badge)badge.textContent="Simulador Excel · v16";
 if(new URLSearchParams(location.search).get("embed")==="1"){
  // Mantener la evaluación principal abierta mientras el candidato trabaja.
  byId("candidate").value="Participante de prueba";
