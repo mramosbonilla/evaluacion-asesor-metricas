@@ -49,6 +49,9 @@ print(df.head())
 <script>
 (()=>{"use strict";
 const $=id=>document.getElementById(id);
+if(new URLSearchParams(location.search).get("embed")==="1"){
+ for(const link of document.querySelectorAll('main article:first-of-type .row a'))link.hidden=true;
+}
 const version="https://cdn.jsdelivr.net/pyodide/v0.29.3/full/";
 const initial=$("code").value;
 const csv=[
