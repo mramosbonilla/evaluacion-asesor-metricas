@@ -21,6 +21,16 @@ if(!Array.isArray(current.objective)||current.objective.length!==15)current.obje
 if(!Array.isArray(current.openCases)||current.openCases.length!==3)current.openCases=["","",""];
 if(!current.feedback)current.feedback={device:"",clarity:"",navigation:"",technicalIssues:"",suggestions:""};
 if(INVITE_CODE)current.inviteCode=INVITE_CODE;
+if(!current.monitoring)current.monitoring={consentAt:null,parent:null,tools:{}};
+if(!current.monitoring.tools)current.monitoring.tools={};
+if(window.MVMInteractionMonitor){
+ window.MVMInteractionMonitor.restore(current.monitoring.parent);
+ window.MVMInteractionMonitor.onChange=snapshot=>{
+  current.monitoring.parent=snapshot;
+  store(ACTIVE,current);
+ };
+ if(current.startedAt&&!current.finishedAt&&current.monitoring.consentAt)window.MVMInteractionMonitor.start();
+}
 function restore(){
  for(let i=0;i<15;i++)knowledgeAnswers[i]=Number.isInteger(current.objective[i])?current.objective[i]:-1;
  for(let i=0;i<3;i++)caseAnswers[i]=String(current.openCases[i]||"");
@@ -31,6 +41,43 @@ function restore(){
  at=Math.max(0,Math.min(8,forced?at:(Number(current.stage)||0)));
 }
 restore();
+function monitoringSummary(){
+ const data=current.monitoring||{parent:null,tools:{}};
+ const parent=data.parent||{};
+ const sources=[];
+ for(const sessions of Object.values(data.tools||{}))
+  for(const item of Object.values(sessions||{}))
+   if(item&&item.schema==="MVM_MONITOR_1")sources.push(item);
+ const fields={};
+ for(const item of [parent,...sources]){
+  for(const [field,f] of Object.entries(item.fields||{})){
+   const origin=item.source||"evaluation",key=origin+"."+field;
+   const total=fields[key]||{source:origin,field,typedCharacters:0,deletedCharacters:0,backspacePresses:0,deletePresses:0,inputEvents:0,activeTypingMs:0,correctionCycles:0,longestUninterruptedCharacters:0};
+   for(const k of ["typedCharacters","deletedCharacters","backspacePresses","deletePresses","inputEvents","activeTypingMs","correctionCycles"])total[k]+=Number(f[k]||0);
+   total.longestUninterruptedCharacters=Math.max(total.longestUninterruptedCharacters,Number(f.longestUninterruptedCharacters||0));
+   total.activeCharactersPerSecond=total.activeTypingMs>=1000?Number((total.typedCharacters/(total.activeTypingMs/1000)).toFixed(2)):null;
+   fields[key]=total;
+  }
+ }
+ const blockedPaste=[parent,...sources].reduce((z,x)=>z+Number(x.pasteAttempts||0),0);
+ const blockedDrop=[parent,...sources].reduce((z,x)=>z+Number(x.dropAttempts||0),0);
+ const tabs=Number(parent.visibilityHiddenCount||0),blur=Number(parent.focusLossCount||0);
+ const alerts=[];
+ if(tabs)alerts.push({code:"TAB_HIDDEN",level:"revisar",count:tabs,message:"La pestaña del examen dejó de estar visible "+tabs+" veces. No es posible saber qué pantalla se utilizó."});
+ if(blur)alerts.push({code:"FOCUS_LOST",level:"informativo",count:blur,message:"La ventana perdió el foco "+blur+" veces; también puede suceder por funciones normales del navegador."});
+ if(blockedPaste||blockedDrop)alerts.push({code:"PASTE_BLOCKED",level:"revisar",count:blockedPaste+blockedDrop,message:"Se bloquearon "+blockedPaste+" pegados y "+blockedDrop+" arrastres de contenido en respuestas."});
+ for(const f of Object.values(fields)){
+  if(f.typedCharacters>=160&&f.activeTypingMs>=3000&&f.activeCharactersPerSecond>=8)
+   alerts.push({code:"HIGH_TYPING_RATE",level:"informativo",source:f.source,field:f.field,message:"Ritmo alto de escritura en "+f.field+". No permite inferir consulta externa."});
+  if(f.field.startsWith("caso_")&&f.longestUninterruptedCharacters>=180&&f.deletedCharacters===0)
+   alerts.push({code:"NO_DELETIONS",level:"informativo",source:f.source,field:f.field,message:"Texto extenso sin borrados detectados en "+f.field+". No constituye indicio suficiente de conducta indebida."});
+ }
+ return{enabled:!!data.consentAt,consentAt:data.consentAt||null,
+  policy:"Estas métricas no afectan la calificación ni constituyen prueba de irregularidad; requieren revisión contextual y posibilidad de aclaración.",
+  tabHiddenCount:tabs,hiddenSeconds:Math.round(Number(parent.hiddenMilliseconds||0)/1000),
+  windowFocusLossCount:blur,windowUnfocusedSeconds:Math.round(Number(parent.focusLossMilliseconds||0)/1000),
+  blockedPasteAttempts:blockedPaste,blockedDropAttempts:blockedDrop,fields,alerts,detail:{parent,tools:data.tools||{}}};
+}
 function collect(){
  const elapsed=current.startedAt?Math.max(0,Math.round((Date.now()-Date.parse(current.startedAt))/1000)):0;
  return {
@@ -39,6 +86,7 @@ function collect(){
  createdAt:current.createdAt,startedAt:current.startedAt,finishedAt:current.finishedAt,
  finishReason:current.finishReason||"en curso",timeLimitSeconds:4500,
  pilot:{invitationCode:current.inviteCode||INVITE_CODE||null,feedback:{...current.feedback},mode:INVITE_CODE?"PRUEBA_DE_USABILIDAD":"PILOTO_GENERAL"},
+ monitoring:monitoringSummary(),
  elapsedSeconds:current.finishedAt&&current.startedAt?Math.max(0,Math.round((Date.parse(current.finishedAt)-Date.parse(current.startedAt))/1000)):elapsed,
  overtime:elapsed>4500,
  progress:{stage:at,objectiveAnswered:knowledgeAnswers.filter(x=>x>=0).length,casesAnswered:caseAnswers.filter(x=>x.trim()).length},
