@@ -158,7 +158,7 @@ function filename(a){
   .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
   .replace(/[^A-Za-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,64)||"SinNombre";
  const id=String(a.attemptId||"").replace(/[^A-Za-z0-9-]/g,"").replace(/^MVM-/,"")||"Intento";
- return "Archivo-"+person+"-PruebaAsesor-"+id+".json";
+ return "Archivo-"+(a.inviteCode?a.inviteCode+"-":"")+person+"-PruebaAsesor-"+id+".json";
 }
 function download(obj,fileName){
  try{
