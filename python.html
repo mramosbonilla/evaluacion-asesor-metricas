@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="es">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>MVM · Laboratorio Python + pandas · Prueba piloto</title>
+<title>MVM · Evaluación Python</title>
 <style>
 :root{font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#f2f5fa;color:#1b283b}
 *{box-sizing:border-box}body{margin:0}header{background:#25305c;color:white;padding:18px clamp(18px,4vw,70px)}header h1{font-size:24px;margin:3px 0}header p{color:#e2e7ff;margin:6px 0}
@@ -18,14 +18,14 @@ table{border-collapse:collapse;width:100%;font-size:14px}th,td{border:1px solid 
 .small{font-size:13px}@media(max-width:600px){article{padding:13px}header h1{font-size:20px}}
 </style></head>
 <body>
-<header><h1>MVM · Python + pandas · Laboratorio práctico</h1><p>Python real ejecutado en el navegador · Prueba piloto sin costos</p></header>
+<header><h1>MVM · Python + pandas · Laboratorio práctico</h1><p>Ejercicio práctico de análisis con pandas</p></header>
 <main>
 <article>
 <h2>Tu desafío</h2><div class="note"><strong>REGLA DE INTEGRIDAD:</strong> resuelve personalmente el análisis sin utilizar IA ni fuentes externas para recibir, copiar y pegar, o transcribir respuestas. Incumplir esta regla constituye una falta a la integridad de la evaluación.</div>
 <p><strong>MVM produce, distribuye y vende libros.</strong> Para analizar las ventas de sus títulos editoriales, dispone del archivo <code>ventas_mvm.csv</code>. Usando <strong>pandas</strong>, crea una tabla agrupada por <code>categoria</code> que muestre el total de unidades y el importe total. Ordena las categorías de mayor a menor importe.</p>
-<div class="note"><strong>Pista técnica:</strong> el importe de cada registro se calcula como <code>unidades * precio_unitario</code>. Puedes utilizar <code>groupby</code>, <code>agg</code>, <code>sort_values</code> y <code>print</code> para mostrar el resultado. No se evalúa automáticamente en esta demostración.</div>
+<div class="note"><strong>Pista técnica:</strong> el importe de cada registro se calcula como <code>unidades * precio_unitario</code>. Puedes utilizar <code>groupby</code>, <code>agg</code>, <code>sort_values</code> y <code>print</code> para mostrar el resultado. El responsable revisará tu solución posteriormente.</div>
 <div class="row"><a href="./vista-previa.html?etapa=6&amp;v=21">Volver a la etapa Python</a><span class="muted">·</span><span class="muted">Tras terminar Python continuarás a los tres casos abiertos</span><span class="muted">·</span><a href="./excel-pivot.html">Tablas dinámicas</a></div>
-<p class="muted small">La primera carga de Python y pandas descarga archivos grandes y requiere Internet. Al terminar, el código y la salida se conservarán en el informe local del piloto, sin enviarlos a un servidor de recepción.</p>
+<p class="muted small">La primera carga de Python y pandas descarga archivos grandes y requiere Internet. Al terminar, el código y la salida se conservarán al finalizar este ejercicio.</p>
 </article>
 <article><h2>Estructura de datos</h2><p>CSV de ejemplo de MVM disponible en el sistema de archivos temporal de Python como <code>ventas_mvm.csv</code> (12 registros).</p>
 <div class="scroll"><table><thead><tr><th>fecha</th><th>tienda</th><th>categoria</th><th>titulo</th><th>unidades</th><th>precio_unitario</th></tr></thead>
