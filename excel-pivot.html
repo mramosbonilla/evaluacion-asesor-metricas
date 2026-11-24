@@ -57,6 +57,12 @@ table{border-collapse:collapse;width:100%;font-size:13px}
 #raw th,#raw td{padding:7px;border:1px solid #d9e4dc;text-align:left}
 #raw th{background:#eff5f0}#raw .scroll{max-height:340px;overflow:auto}
 #raw thead{position:sticky;top:0}
+.assessment-progress{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:#edf6f0;padding:12px 14px;border-radius:8px;color:#18513b;margin-bottom:14px}
+.response-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(195px,1fr));gap:12px;margin:16px 0}
+.response-fields label{display:flex;flex-direction:column;gap:6px;font-size:14px;font-weight:650}
+.response-fields input{width:100%;padding:11px;border-radius:7px;border:1px solid #abc5b3;background:white;font:inherit}
+.response-fields input:focus{outline:2px solid #4e9b70}
+#pivotTaskDescription{font-size:15px;max-width:1020px}
 .exercise{padding:10px 14px;border:1px solid #d5e6db;border-radius:8px;margin:8px 0}
 .exercise summary{cursor:pointer;font-weight:750;color:#1d603b}
 .exercise p{font-size:14px}footer{text-align:center;color:#647568;font-size:12px;padding:18px}
@@ -65,50 +71,47 @@ table{border-collapse:collapse;width:100%;font-size:13px}
 @media(max-width:580px){header h1{font-size:20px}.zones{grid-template-columns:1fr}.card{padding:12px}.zone{min-height:94px}main{padding:0 9px}#pivotResult{min-width:480px}}
 </style>
 </head><body>
-<header><h1>MVM · Excel avanzado · Tablas dinámicas</h1><p>Empresa que produce, distribuye y vende libros · Motor de tablas dinámicas de práctica v16</p></header>
+<header><h1>MVM · Excel avanzado · Tablas dinámicas</h1><p>Empresa que produce, distribuye y vende libros · Evaluación de tablas dinámicas · V21</p></header>
 <main>
-<section class="card">
-<h2>Ejercicios de evaluación práctica · 20 puntos</h2>
-<p>Analiza <strong>54 registros de ventas de libros de MVM</strong>. Arrastra campos desde la lista a las cuatro áreas o selecciónalos directamente en los menús. Los menús funcionan también en tabletas y teléfonos, sin necesidad de arrastrar.</p>
-<details class="exercise" open><summary>Ejercicio 1 · Construcción de la tabla (8 puntos)</summary>
-<p><strong>Filas:</strong> Sucursal. <strong>Columnas:</strong> Categoría. <strong>Valores:</strong> Importe con operación <strong>Suma</strong>. Indica el total general, la sucursal con más ventas y la categoría de mayor importe.</p></details>
-<details class="exercise"><summary>Ejercicio 2 · Filtrar febrero (6 puntos)</summary>
-<p>Conserva las áreas anteriores. En <strong>Filtros</strong>, elige <strong>Mes</strong> y marca únicamente <strong>Febrero</strong>. Identifica el total de febrero y la sucursal con más ventas ese mes.</p></details>
-<details class="exercise"><summary>Ejercicio 3 · Cambiar la medida (6 puntos)</summary>
-<p>Quita el filtro o pulsa <strong>Reiniciar</strong>. Selecciona <strong>Título</strong> en Filas, deja Columnas sin asignar, elige <strong>Unidades</strong> en Valores y <strong>Suma</strong>. Indica qué título vendió más ejemplares y cuántos. Para ello utiliza <strong>Ordenar filas por resultado → Mayor a menor</strong>. <strong>La tabla final debe estar ordenada de mayor a menor según el total de unidades vendidas.</strong></p></details>
-<div class="notice"><strong>Modo piloto:</strong> los cálculos funcionan localmente en el navegador; todavía no guardan ni califican respuestas en un servidor. Los datos se crearon para la prueba.</div>
-<div class="top-actions"><button id="reset" type="button">Reiniciar áreas</button><button id="showRaw" class="alt" type="button">Mostrar registros de origen</button><button id="finishPivot" type="button">Terminar práctica de tabla dinámica</button><a id="backToEvaluation" class="button alt" href="./vista-previa.html?etapa=4&amp;v=16">Volver a la etapa de tabla dinámica</a><a id="continueToSQL" class="button alt" href="./vista-previa.html?etapa=5&amp;v=16">Continuar a SQL</a></div>
-<div class="notice" style="margin-top:12px"><strong>Guardar los tres ejercicios:</strong> cuando termines cada tabla, pulsa su botón «Guardar ejercicio». Puedes rehacerla y volver a guardarla antes de terminar. Así podremos revisar tu configuración y los resultados obtenidos.</div>
-<div class="top-actions" id="captureBar">
-<button type="button" id="savePivot1" class="alt">Guardar ejercicio 1</button>
-<button type="button" id="savePivot2" class="alt">Guardar ejercicio 2</button>
-<button type="button" id="savePivot3" class="alt">Guardar ejercicio 3</button>
-</div><p id="savedState" role="status" aria-live="polite" class="small muted">Ejercicios guardados: 0 de 3</p>
+
+<section class="card" id="assignmentPanel">
+ <div class="assessment-progress"><strong id="pivotCounter">Ejercicio 1 de 3</strong><span id="pivotPoints">8 puntos</span><span id="savedState" role="status" aria-live="polite">0 de 3 guardados</span></div>
+ <h2 id="pivotTaskTitle">Análisis comercial de MVM</h2>
+ <p id="pivotTaskDescription"></p>
+ <div id="pivotResponseFields" class="response-fields"></div>
+ <div class="notice"><strong>Evaluación de conocimientos:</strong> determina por tu cuenta qué campos, cálculos, filtros y presentación necesita el informe solicitado. Puedes consultar los registros de origen. No se permite utilizar IA ni servicios externos para obtener respuestas, copiarlas o transcribirlas.</div>
+ <div class="actions">
+  <button id="saveAndNextPivot" type="button">Guardar ejercicio 1 y continuar</button>
+  <button id="skipPivot" type="button" class="alt">No sé resolverlo · pasar al siguiente</button>
+  <button id="reset" type="button" class="alt">Limpiar tabla</button>
+  <button id="showRaw" type="button" class="alt">Mostrar registros de origen</button>
+  <a id="backToEvaluation" class="button alt" href="./vista-previa.html?etapa=4&amp;v=21">Regresar a la evaluación</a>
+ </div>
 </section>
 <section class="card">
-<h2>Construye tu tabla dinámica</h2>
+<h2>Área de trabajo</h2>
 <div class="layout">
 <aside class="sidebar">
-<h3>Campos disponibles</h3><p>Arrastra un campo hacia un área o selecciónalo en el menú correspondiente.</p>
+<h3>Campos disponibles</h3><p>Organiza los campos según el resultado que necesites presentar.</p>
 <div id="fields" class="fields"></div>
 </aside>
 <div class="builder">
 <div class="zones">
 <section id="rowZone" class="zone" data-area="row" aria-label="Área de filas">
-<h3>▤ Filas</h3><select id="rowField" aria-label="Seleccionar campo para filas"></select><p>Por ejemplo: Sucursal o Título.</p></section>
+<h3>▤ Filas</h3><select id="rowField" aria-label="Seleccionar campo para filas"></select><p>Dimensión principal de agrupación.</p></section>
 <section id="colZone" class="zone" data-area="col" aria-label="Área de columnas">
-<h3>▥ Columnas</h3><select id="colField" aria-label="Seleccionar campo para columnas"></select><p>Por ejemplo: Categoría.</p></section>
+<h3>▥ Columnas</h3><select id="colField" aria-label="Seleccionar campo para columnas"></select><p>Desglose complementario.</p></section>
 <section id="valueZone" class="zone" data-area="value" aria-label="Área de valores">
-<h3>∑ Valores</h3><div class="value-tools"><select id="valueField" aria-label="Seleccionar campo numérico de valores"></select><select id="aggregate" class="agg" aria-label="Seleccionar operación de agregación"><option value="sum">Suma</option><option value="count">Conteo</option><option value="avg">Promedio</option></select></div><p>Selecciona Importe o Unidades y cómo agruparlos.</p></section>
+<h3>∑ Valores</h3><div class="value-tools"><select id="valueField" aria-label="Seleccionar campo numérico de valores"></select><select id="aggregate" class="agg" aria-label="Seleccionar operación de agregación"><option value="sum">Suma</option><option value="count">Conteo</option><option value="avg">Promedio</option></select></div><p>Define la medida y operación adecuadas.</p></section>
 <section id="filterZone" class="zone" data-area="filter" aria-label="Área de filtros">
-<h3>▽ Filtros</h3><select id="filterField" aria-label="Seleccionar campo para filtros"></select><p>Por ejemplo: Mes, para dejar solo Febrero.</p></section>
+<h3>▽ Filtros</h3><select id="filterField" aria-label="Seleccionar campo para filtros"></select><p>Restringe los registros si el objetivo lo requiere.</p></section>
 </div>
 <div id="filters"><h3>Opciones del filtro</h3><div id="filterDescription" class="muted small">Selecciona un campo en el área Filtros.</div><div id="filterItems"></div><div class="actions"><button id="checkAll" class="alt" type="button">Mostrar todos</button><button id="clearAll" class="alt" type="button">Quitar todos</button></div></div>
 <div id="status" role="status" aria-live="polite">Selecciona un campo numérico en Valores para comenzar.</div>
 </div>
 </div>
 </section>
-<section class="card"><div class="result-heading"><h2>Resultados de la tabla dinámica</h2><label for="sortOrder" class="sort-label">Ordenar filas por resultado <select id="sortOrder" aria-label="Ordenar filas según el resultado total"><option value="original">Orden original (sin ordenar por resultado)</option><option value="desc">Mayor a menor ↓</option><option value="asc">Menor a mayor ↑</option></select></label></div><div id="resultInfo"></div><div id="resultShell"><div id="resultPlaceholder" class="placeholder">Selecciona un campo en <strong>Valores</strong>, por ejemplo <strong>Importe</strong>, para ver los resultados.</div><table id="pivotResult" aria-label="Resultados de la tabla dinámica" hidden></table></div></section>
+<section class="card"><div class="result-heading"><h2>Resultados de la tabla dinámica</h2><label for="sortOrder" class="sort-label">Ordenar filas por resultado <select id="sortOrder" aria-label="Ordenar filas según el resultado total"><option value="original">Orden original (sin ordenar por resultado)</option><option value="desc">Mayor a menor ↓</option><option value="asc">Menor a mayor ↑</option></select></label></div><div id="resultInfo"></div><div id="resultShell"><div id="resultPlaceholder" class="placeholder">Configura la tabla para visualizar el resultado del ejercicio.</div><table id="pivotResult" aria-label="Resultados de la tabla dinámica" hidden></table></div></section>
 <section class="card" id="raw"><h2>Registros de origen</h2><p class="muted small">Datos para practicar; no proceden de operaciones reales.</p><div class="scroll"><table><thead><tr><th>Fecha</th><th>Mes</th><th>Sucursal</th><th>Categoría</th><th>Título</th><th>Unidades</th><th>PrecioUnitario</th><th>Importe</th></tr></thead><tbody id="rawRows"></tbody></table></div></section>
 </main><footer>MVM · Evaluación técnica piloto · Los datos y cálculos permanecen en este dispositivo.</footer>
 <script>
@@ -255,40 +258,88 @@ for(const r of rows){
  for(const field of fields){const td=document.createElement("td");td.textContent=String(r[field]);tr.append(td);}
  $("rawRows").append(tr);
 }
-function capturePivot(n){
- const row=$("rowField").value, colF=$("colField").value,filter=$("filterField").value,
-  measure=$("valueField").value,op=$("aggregate").value,order=$("sortOrder").value;
- if(!measure){alert("Primero selecciona una medida en Valores para guardar el ejercicio.");return;}
+
+const tasks=[
+ {title:"Informe de facturación por sucursal y línea editorial",points:8,
+  prompt:"La dirección comercial de MVM necesita una tabla que permita comparar los <strong>ingresos totales</strong> de cada sucursal en las distintas categorías editoriales. Prepara el informe de forma que las comparaciones entre ambas dimensiones sean claras, e informa los siguientes resultados.",
+  questions:[["total_general","Facturación total de la empresa"],["sucursal_lider","Sucursal con mayor facturación"],["categoria_lider","Categoría editorial de mayor facturación"]]},
+ {title:"Resultados comerciales de febrero",points:6,
+  prompt:"El responsable de distribución solicita un informe <strong>exclusivamente de febrero</strong> para comparar los ingresos de las sucursales. Prepara una tabla que permita identificar la sucursal líder y el total de ingresos del mes.",
+  questions:[["total_febrero","Facturación total de febrero"],["sucursal_febrero","Sucursal líder en febrero"]]},
+ {title:"Clasificación de los títulos más vendidos",points:6,
+  prompt:"La gerencia editorial necesita conocer <strong>cuántos ejemplares se vendieron de cada título</strong> durante todo el período. Presenta una tabla con el total por libro, <strong>ordenada de mayor a menor</strong> según los ejemplares vendidos. Indica cuál ocupa el primer puesto y su total.",
+  questions:[["titulo_lider","Título con más ejemplares vendidos"],["unidades_lider","Cantidad de ejemplares del primer título"]]}
+];
+let activeExercise=1;
+const inEvaluation=new URLSearchParams(location.search).get("embed")==="1"&&window.parent!==window;
+function renderTask(){
+ const task=tasks[activeExercise-1];
+ $("pivotCounter").textContent="Ejercicio "+activeExercise+" de 3";
+ $("pivotPoints").textContent=task.points+" puntos";
+ $("pivotTaskTitle").textContent=task.title;
+ $("pivotTaskDescription").innerHTML=task.prompt;
+ const target=$("pivotResponseFields");
+ target.replaceChildren();
+ for(const [key,label] of task.questions){
+  const el=document.createElement("label"),span=document.createElement("span"),input=document.createElement("input");
+  span.textContent=label;input.type="text";input.className="pivot-answer";
+  input.id="pivotAnswer-"+key;input.dataset.answer=key;input.autocomplete="off";
+  input.placeholder="Escribe tu respuesta";el.append(span,input);target.append(el);
+ }
+ $("saveAndNextPivot").textContent=activeExercise===3?"Guardar ejercicio 3 y continuar a SQL":"Guardar ejercicio "+activeExercise+" y continuar";
+ $("skipPivot").textContent=activeExercise===3?"Omitir último ejercicio y continuar":"No sé resolverlo · siguiente ejercicio";
+ $("savedState").textContent=Object.keys(snapshots).length+" de 3 guardados";
+}
+function resetBuilder(){
+ for(const id of ["rowField","colField","valueField","filterField"])$(id).value="";
+ $("aggregate").value="sum";
+ $("sortOrder").value="original";
+ lastFilter="";selectedFilterValues.clear();
+ onUpdate();
+}
+function saveSnapshot(n,skipped){
+ const task=tasks[n-1],row=$("rowField").value,colF=$("colField").value,
+  filter=$("filterField").value,measure=$("valueField").value,
+  op=$("aggregate").value,order=$("sortOrder").value;
+ const answers=Object.fromEntries(task.questions.map(([key])=>[key,($("pivotAnswer-"+key)?.value||"").trim()]));
  const subset=filtered();
  const rowGroups=row?[...new Set(subset.map(r=>String(r[row])))]:["Total"];
- const columnGroups=colF?[...new Set(subset.map(r=>String(r[colF])))]:[];
- const rowTotals=Object.fromEntries(rowGroups.map(v=>[v,aggregator(row?subset.filter(x=>String(x[row])===v):subset,measure,op)]));
- const colTotals=Object.fromEntries(columnGroups.map(v=>[v,aggregator(subset.filter(x=>String(x[colF])===v),measure,op)]));
- const summary={id:n,capturedAt:new Date().toISOString(),rowField:row,colField:colF,valueField:measure,
-  aggregate:op,filterField:filter,filterValues:filter?[...selectedFilterValues]:[],sortOrder:order,
-  visibleRows:subset.length,total:aggregator(subset,measure,op),rowTotals,colTotals};
- snapshots[n]=summary;
- $("savedState").textContent="Ejercicios guardados: "+Object.keys(snapshots).length+" de 3. Último guardado: ejercicio "+n+".";
- const btn=$("savePivot"+n);btn.textContent="✓ Ejercicio "+n+" guardado";
+ const colGroups=colF?[...new Set(subset.map(r=>String(r[colF])))]:[];
+ const rowTotals=Object.fromEntries(rowGroups.map(v=>[v,aggregator(row?subset.filter(x=>String(x[row])===v):subset,measure||"Importe",op)]));
+ const colTotals=Object.fromEntries(colGroups.map(v=>[v,aggregator(subset.filter(x=>String(x[colF])===v),measure||"Importe",op)]));
+ const snapshot={id:n,task:task.title,points:task.points,skipped:!!skipped,capturedAt:new Date().toISOString(),
+  rowField:row,colField:colF,valueField:measure,aggregate:op,filterField:filter,
+  filterValues:filter?[...selectedFilterValues]:[],sortOrder:order,visibleRows:subset.length,
+  total:measure?aggregator(subset,measure,op):null,rowTotals:measure?rowTotals:{},colTotals:measure?colTotals:{},
+  answers,questionOrder:n};
+ snapshots[n]=snapshot;
  if(inEvaluation)window.parent.postMessage({type:"MVM_PIVOT_PROGRESS",version:16,snapshots},location.origin);
+ return snapshot;
 }
-$("savePivot1").onclick=()=>capturePivot(1);
-$("savePivot2").onclick=()=>capturePivot(2);
-$("savePivot3").onclick=()=>capturePivot(3);
-const inEvaluation=new URLSearchParams(location.search).get("embed")==="1" && window.parent!==window;
 function finishAndContinue(){
- if(inEvaluation)window.parent.postMessage({type:"MVM_PIVOT_COMPLETE",version:16,rows:rows.length,snapshots,completedAt:new Date().toISOString()},location.origin);
- else{try{localStorage.setItem("mvm-pilot-pivot-pending",JSON.stringify({type:"MVM_PIVOT_COMPLETE",version:16,snapshots,completedAt:new Date().toISOString()}));}catch(e){}location.href="./vista-previa.html?etapa=5&v=16";}
+ const result={type:"MVM_PIVOT_COMPLETE",version:16,rows:rows.length,snapshots,completedAt:new Date().toISOString()};
+ if(inEvaluation)window.parent.postMessage(result,location.origin);
+ else{
+  try{localStorage.setItem("mvm-pilot-pivot-pending",JSON.stringify(result));}catch(e){}
+  location.href="./vista-previa.html?etapa=5&v=21";
+ }
 }
-$("finishPivot").onclick=()=>{
- if(!Object.keys(snapshots).length){if(!confirm("No has guardado ningún ejercicio de tabla dinámica. ¿Quieres continuar sin registros de esta práctica?"))return;}
- if(!confirm("¿Terminar tablas dinámicas y continuar a SQL? Se conservarán "+Object.keys(snapshots).length+" ejercicios guardados, de 3."))return;
- finishAndContinue();
-};
-$("continueToSQL").addEventListener("click",event=>{
- if(!inEvaluation)return;event.preventDefault();finishAndContinue();
-});
+function moveAfterSave(skipped){
+ const n=activeExercise;
+ if(!skipped&&!$("valueField").value){
+  alert("Para guardar un ejercicio resuelto, construye primero una tabla con una medida en Valores. Si no sabes resolverlo, utiliza «No sé resolverlo».");
+  return;
+ }
+ if(skipped&&!confirm("¿Dejar el ejercicio "+n+" sin resolver y continuar?"))return;
+ saveSnapshot(n,skipped);
+ if(n===3){finishAndContinue();return;}
+ activeExercise++;
+ resetBuilder();renderTask();
+ window.scrollTo({top:0,behavior:"smooth"});
+}
+$("saveAndNextPivot").onclick=()=>moveAfterSave(false);
+$("skipPivot").onclick=()=>moveAfterSave(true);
 if(inEvaluation)$("backToEvaluation").hidden=true;
-onUpdate();
+onUpdate();renderTask();
 })();
 </script><script src="./mvm-monitor.js?v=20"></script></body></html>
