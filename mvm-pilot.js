@@ -1,7 +1,7 @@
 /* MVM · Evaluación técnica. Estado local con receptor privado opcional y acuse verificable. */
 (function(){
 "use strict";
-const INVITE_CODE=(()=>{const code=(new URLSearchParams(location.search).get("tester")||"").trim().toUpperCase();return /^P(?:0[1-9]|1[0-5])$/.test(code)?code:"";})();
+const INVITE_CODE=(()=>{const code=(new URLSearchParams(location.search).get("tester")||"").trim().toUpperCase();return /^P(?:0[0-9]|1[0-5])$/.test(code)?code:"";})();
 const ACTIVE=INVITE_CODE?"mvm-assessment-active-v25-"+INVITE_CODE:"mvm-pilot-active-v16";
 const ARCHIVE=INVITE_CODE?"mvm-assessment-archive-v25-"+INVITE_CODE:"mvm-pilot-archive-v16";
 const now=()=>new Date().toISOString();
