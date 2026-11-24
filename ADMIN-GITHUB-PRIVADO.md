@@ -4,7 +4,7 @@
 
 ## Resultado esperado
 
-1. Cada candidato recibe **SU enlace privado**, con código P01–P15 y clave larga no adivinable.
+1. Cada candidato recibe **SU enlace privado**, con código P01–P15 y clave larga no adivinable. P00 está reservado para el ensayo.
 2. Acepta el compromiso de integridad, desarrolla la evaluación durante 75 minutos y puede añadir comentarios.
 3. Pulsa **Guardar y enviar evaluación**. La app conserva una copia local inmutable y reintenta el mismo contenido si hay fallos.
 4. Un servicio Google Apps Script valida la invitación, el esquema y la privacidad del destino. Guarda un JSON en un repositorio **GitHub PRIVADO**.
@@ -28,14 +28,14 @@
 3. En **Configuración del proyecto → Propiedades de secuencia de comandos** agrega:
    - \`MVM_GITHUB_TOKEN\` = token GitHub restringido al repositorio privado.
    - \`MVM_TARGET_REPO\` = \`mramosbonilla/MVM-Resultados-Privados\` (o tu nombre elegido).
-4. Ejecuta desde el editor la función \`mvmProvisionInvitations\` **una sola vez**. Autoriza los permisos solicitados. La función guarda solo hashes SHA-256 y presenta en el **Registro de ejecución privado** las 15 invitaciones, P01 a P15, con claves de 64 caracteres.
+4. Ejecuta desde el editor la función \`mvmProvisionInvitations\` **una sola vez**. Autoriza los permisos solicitados. La función guarda solo hashes SHA-256 y presenta en el **Registro de ejecución privado** 16 enlaces con claves de 64 caracteres: **P00 para el ensayo** y P01–P15 para candidatos reales.
 5. **Copia esos enlaces en un lugar privado y distribuye uno a cada candidato.** No los subas a GitHub, no los compartas públicamente ni los pegues en chats grupales. Si pierdes las claves originales, no se recuperan de los hashes: hay que rotar las invitaciones y crear enlaces nuevos.
 6. En Apps Script, **Implementar → Nueva implementación → Aplicación web**. Configura ejecutar como **Yo** y acceso **Cualquier persona** (necesario para participantes sin cuenta Google). Confirma autorizaciones. Copia la URL HTTPS terminada en \`/exec\`.
 7. En el repositorio público, edita [mvm-config.js](./mvm-config.js) y coloca **solo la URL HTTPS del receptor** en \`endpoint\`. Deja \`requireSecureDelivery:true\`. El URL del receptor **no es una clave secreta**, pero el token de GitHub y los hashes de invitaciones sí lo son.
 
 ## Parte C — Prueba obligatoria antes de enviar las invitaciones
 
-1. Utiliza una invitación de prueba (P01). **Advertencia:** cuando se entregue, esa invitación quedará ocupada; para reutilizarla habrá que rotar las invitaciones o generar una serie distinta para los candidatos reales.
+1. Utiliza exclusivamente la invitación **P00** para probar el sistema. Quedará ocupada tras la entrega, mientras las 15 invitaciones reales P01–P15 permanecen intactas.
 2. Completa el examen, agrega comentarios y pulsa **Guardar y enviar evaluación**.
 3. Debe aparecer **Evaluación recibida ✓**.
 4. En el repositorio privado debe existir \`entregas/2026/P01.json\` con \`knowledge\`, \`openCases\`, \`practical\` y \`monitoring\`. No copies aquí credenciales ni enlaces secretos.
