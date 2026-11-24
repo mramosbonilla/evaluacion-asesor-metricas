@@ -10,7 +10,7 @@ function endpoint(){
 function invitation(){
  const qs=new URLSearchParams(location.search),code=String(qs.get("tester")||"").toUpperCase();
  const token=String(qs.get("token")||"").toLowerCase();
- return /^P(?:0[1-9]|1[0-5])$/.test(code)&&/^[a-f0-9]{64}$/.test(token)?{code,token}:null;
+ return /^P(?:0[0-9]|1[0-5])$/.test(code)&&/^[a-f0-9]{64}$/.test(token)?{code,token}:null;
 }
 function secureNonce(){
  if(!window.crypto?.getRandomValues)throw Error("El navegador no permite una conexión de entrega segura.");
