@@ -36,7 +36,7 @@ function mvmProvisionInvitations(){
     const token=(Utilities.getUuid()+Utilities.getUuid()).replace(/-/g,"").toLowerCase();
     if(!/^[a-f0-9]{64}$/.test(token))throw Error("Error al generar invitación");
     hashes[code]=mvmHash_(token);
-    links.push("https://mramosbonilla.github.io/evaluacion-asesor-metricas/vista-previa.html?tester="+code+"&token="+token+"&v=25");
+    links.push("https://mramosbonilla.github.io/evaluacion-asesor-metricas/vista-previa.html?tester="+code+"&token="+token+"&v=26");
   });
   props.setProperty("MVM_INVITE_HASHES",JSON.stringify(hashes));
   Logger.log("COPIAR ESTOS ENLACES PRIVADAMENTE; NO PUBLICAR NI PEGAR EN GITHUB:\n"+links.join("\n"));
