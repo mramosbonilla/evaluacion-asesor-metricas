@@ -23,7 +23,7 @@ const parentConsent=()=>{
 let state=empty(),enabled=!PARENT&&EMBEDDED&&parentConsent(),finished=false,lastPaste=0,lastReport=0;
 const previous=new WeakMap(),beforeInput=new WeakMap();
 function time(){return Date.now();}
-function newField(){return{typedCharacters:0,deletedCharacters:0,backspacePresses:0,deletePresses:0,inputEvents:0,activeTypingMs:0,activeGaps:0,longestUninterruptedCharacters:0,currentUninterruptedCharacters:0,correctionCycles:0,typingAfterDeletion:false,firstAt:null,lastAt:null,medianGapSamplesMs:[]};}
+function newField(){return{typedCharacters:0,deletedCharacters:0,backspacePresses:0,deletePresses:0,inputEvents:0,activeTypingMs:0,activeGaps:0,longestUninterruptedCharacters:0,currentUninterruptedCharacters:0,correctionCycles:0,typingAfterDeletion:false,firstAt:null,lastAt:null,firstInputAt:null,lastInputAt:null,writingSpanMs:0,pausesOver5Seconds:0,pausesOver10Seconds:0,longestInterInputPauseMs:0,substantialRevisionCount:0,multilineRevisionCount:0,minorDeletionEvents:0,maxDeletionSequenceChars:0,medianGapSamplesMs:[],_deletionRunChars:0,_deletionRunCounted:false,_deletionLineCounted:false,_lastDeletionAt:null};}
 function fieldName(el){
  if(!el||!el.matches)return null;
  if(PARENT&&el.matches("#caseResponse")){
@@ -121,24 +121,51 @@ document.addEventListener("input",e=>{
  const field=accessibleTarget(e.target)?.field;if(!field)return;
  const next=String(e.target.value||""),before=beforeInput.get(e.target),last=previous.get(e.target);
  const old=(before?.key===field?before.value:last?.key===field?last.value:next);
+ beforeInput.delete(e.target);
  previous.set(e.target,{key:field,value:next});
- const item=observe(field);
+ const item=observe(field),now=time();
  item.inputEvents++;
- const now=time();
- if(item._lastInputAt&&now-item._lastInputAt<=2500){
-  const gap=now-item._lastInputAt;
-  item.activeTypingMs+=gap;item.activeGaps++;
-  item.medianGapSamplesMs.push(gap);
-  if(item.medianGapSamplesMs.length>150)item.medianGapSamplesMs.shift();
+ if(!item.firstInputAt)item.firstInputAt=new Date(now).toISOString();
+ if(item._lastInputAt!=null){
+  const gap=Math.max(0,now-item._lastInputAt);
+  if(gap<=2500){
+   item.activeTypingMs+=gap;item.activeGaps++;
+   item.medianGapSamplesMs.push(gap);
+   if(item.medianGapSamplesMs.length>150)item.medianGapSamplesMs.shift();
+  }
+  if(gap>=5000)item.pausesOver5Seconds++;
+  if(gap>=10000)item.pausesOver10Seconds++;
+  item.longestInterInputPauseMs=Math.max(item.longestInterInputPauseMs,gap);
  }
  item._lastInputAt=now;
+ item.lastInputAt=new Date(now).toISOString();
+ item.writingSpanMs=Math.max(0,now-Date.parse(item.firstInputAt));
  const min=Math.min(old.length,next.length);let prefix=0;
  while(prefix<min&&old[prefix]===next[prefix])prefix++;
  let suffix=0;
  while(suffix<min-prefix&&old[old.length-1-suffix]===next[next.length-1-suffix])suffix++;
  const del=old.length-prefix-suffix,add=next.length-prefix-suffix;
- if(del>0||String(e.inputType||"").startsWith("delete")){
-  item.deletedCharacters+=Math.max(0,del);
+ if(del>0){
+  item.deletedCharacters+=del;
+  if(del<=3)item.minorDeletionEvents++;
+  const sameRun=item._lastDeletionAt!=null&&now-item._lastDeletionAt<=1800&&item._deletionRunChars>0;
+  if(!sameRun){
+   item._deletionRunChars=0;item._deletionRunCounted=false;item._deletionLineCounted=false;
+  }
+  item._deletionRunChars+=del;item._lastDeletionAt=now;
+  item.maxDeletionSequenceChars=Math.max(item.maxDeletionSequenceChars,item._deletionRunChars);
+  if(item._deletionRunChars>=20&&!item._deletionRunCounted){
+   item.substantialRevisionCount++;
+   item._deletionRunCounted=true;
+  }
+  const removed=old.slice(prefix,old.length-suffix);
+  if(removed.includes("\n")&&!item._deletionLineCounted){
+   item.multilineRevisionCount++;
+   item._deletionLineCounted=true;
+  }
+  item.typingAfterDeletion=true;
+  item.currentUninterruptedCharacters=0;
+ }else if(String(e.inputType||"").startsWith("delete")){
   item.typingAfterDeletion=true;item.currentUninterruptedCharacters=0;
  }
  if(add>0){
@@ -146,6 +173,7 @@ document.addEventListener("input",e=>{
   if(item.typingAfterDeletion){item.correctionCycles++;item.typingAfterDeletion=false;}
   item.currentUninterruptedCharacters+=add;
   item.longestUninterruptedCharacters=Math.max(item.longestUninterruptedCharacters,item.currentUninterruptedCharacters);
+  item._deletionRunChars=0;item._deletionRunCounted=false;item._deletionLineCounted=false;
  }
  changed(false);
 },true);
@@ -181,7 +209,10 @@ function snapshot(){
   if(samples.length){const arr=[...samples].sort((a,b)=>a-b);f.medianInterInputMs=arr[Math.floor(arr.length/2)];}
   else f.medianInterInputMs=null;
   f.activeCharactersPerSecond=f.activeTypingMs>=1000?Number((f.typedCharacters/(f.activeTypingMs/1000)).toFixed(2)):null;
+  f.sustainedCharactersPerSecond=f.writingSpanMs>=30000?Number((f.typedCharacters/(f.writingSpanMs/1000)).toFixed(2)):null;
+  f.deletionRatio=f.typedCharacters?Number((f.deletedCharacters/f.typedCharacters).toFixed(3)):null;
   delete f._lastInputAt;delete f.typingAfterDeletion;delete f.currentUninterruptedCharacters;delete f.medianGapSamplesMs;
+  delete f._deletionRunChars;delete f._deletionRunCounted;delete f._deletionLineCounted;delete f._lastDeletionAt;
  }
  return out;
 }
@@ -190,6 +221,7 @@ function restore(x){
  state=JSON.parse(JSON.stringify(x));state.sessionId=sessionId;
  for(const f of Object.values(state.fields||{})){
   f._lastInputAt=null;f.typingAfterDeletion=false;f.currentUninterruptedCharacters=0;
+  f._deletionRunChars=0;f._deletionRunCounted=false;f._deletionLineCounted=false;f._lastDeletionAt=null;
   f.medianGapSamplesMs=[];
  }
  if(state.hiddenSince)state.hiddenSince=null;
