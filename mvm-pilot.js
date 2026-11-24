@@ -73,12 +73,12 @@ render=function(){
    '<p>SQL: <strong>'+(current.sql?'registrado':'sin entrega')+'</strong> · Python: <strong>'+(current.python?'registrado':'sin entrega')+'</strong></p></div>'+
    '<p><strong>La calificación y el ranking son privados.</strong> Se elaborarán después de que compartas los informes de tus dos pruebas. No se mostrarán las claves en esta página.</p>'+
    (current.finishedAt?
-    '<div class="question"><p>Tu intento está cerrado. Descarga el archivo para que podamos revisar las fórmulas, consultas, código y respuestas abiertas.</p><div class="actions"><button class="btn" id="exportReport" type="button">Descargar resultado de este intento (.json)</button><button class="btn secondary" id="copyReport" type="button">Copiar informe</button><button class="btn secondary" id="exportAll" type="button">Descargar todos los intentos</button><button class="btn secondary" id="startAnother" type="button">Crear siguiente candidato simulado</button></div></div>':
+    '<div class="question"><p>Tu intento está cerrado. Descarga el archivo para que podamos revisar las fórmulas, consultas, código y respuestas abiertas.</p><p><strong>Archivo:</strong> <code>'+safeHtml(filename(current))+'</code></p><div class="actions"><button class="btn" id="exportReport" type="button">Descargar resultado de este intento (.json)</button><button class="btn secondary" id="copyReport" type="button">Copiar informe</button><button class="btn secondary" id="exportAll" type="button">Descargar todos los intentos</button><button class="btn secondary" id="startAnother" type="button">Crear siguiente candidato simulado</button></div></div>':
     '<div class="question"><p>Si algo quedó incompleto, puedes volver a la sección correspondiente antes de entregar. Al cerrar se archivará este intento.</p><button class="btn" id="closePilot" type="button">Finalizar prueba y descargar informe</button></div>');
   const close=document.getElementById("closePilot");if(close)close.onclick=()=>finish("entrega_manual");
   const exp=document.getElementById("exportReport");if(exp)exp.onclick=()=>download(collect(),filename(current));
   const cp=document.getElementById("copyReport");if(cp)cp.onclick=copyReport;
-  const all=document.getElementById("exportAll");if(all)all.onclick=()=>download({schema:"MVM_PILOT_BUNDLE_16",exportedAt:now(),attempts:archive},"MVM-Resultados-Piloto.json");
+  const all=document.getElementById("exportAll");if(all)all.onclick=()=>download({schema:"MVM_PILOT_BUNDLE_16",exportedAt:now(),attempts:archive},"Archivo-TodosLosCandidatos-PruebaAsesor.json");
   const next=document.getElementById("startAnother");if(next)next.onclick=createAnother;
  }
  updateTop();
@@ -98,7 +98,14 @@ function sync(){
  current.openCases=[...caseAnswers];current.knowledgeIndex=knowledgeIndex;current.caseIndex=caseIndex;
  current.stage=at;current.excel=excelPilotReport;current.pivot=pivotPilotReport;
 }
-function filename(a){return "MVM-Intento-"+a.attemptId.replace(/[^A-Za-z0-9-]/g,"")+".json";}
+function filename(a){
+ // Nombre reconocible por candidato; sufijo del intento para no sobrescribir otras pruebas.
+ const person=String(a.name||"SinNombre").trim()
+  .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+  .replace(/[^A-Za-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,64)||"SinNombre";
+ const id=String(a.attemptId||"").replace(/[^A-Za-z0-9-]/g,"").replace(/^MVM-/,"")||"Intento";
+ return "Archivo-"+person+"-PruebaAsesor-"+id+".json";
+}
 function download(obj,fileName){
  try{
   const blob=new Blob([JSON.stringify(obj,null,2)],{type:"application/json;charset=utf-8"});
