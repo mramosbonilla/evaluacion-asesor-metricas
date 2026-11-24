@@ -202,7 +202,7 @@ render=function(){
    const auto=!!window.MVMDelivery?.available?.();
    area.insertAdjacentHTML("beforeend",auto?
     '<div class="question"><h3>Entrega de la evaluación</h3><p>Cuando hayas terminado tus comentarios, pulsa el botón para enviar tus respuestas al responsable del proceso.</p><button class="btn" id="submitEvaluation" type="button">Guardar y enviar evaluación</button><p id="deliveryStatus" role="status" aria-live="polite"></p><div id="deliveryBackup" style="display:none"><button class="btn secondary" id="exportReport" type="button">Guardar copia de respaldo</button></div></div>':
-    '<div class="question"><h3>Entrega de la evaluación</h3><p>El envío directo todavía no está habilitado. Guarda el archivo de entrega y compártelo con la persona que te proporcionó el enlace.</p><div class="actions"><button class="btn" id="exportReport" type="button">Guardar evaluación</button><button class="btn secondary" id="shareReport" type="button">Compartir evaluación</button></div><p class="muted">Conserva el archivo hasta recibir confirmación del responsable.</p></div>');
+    '<div class="question"><h3>Entrega de la evaluación</h3><p>Para completar la entrega, guarda tu evaluación y envíala al responsable del proceso mediante el canal que te indicó.</p><div class="actions"><button class="btn" id="exportReport" type="button">Guardar evaluación</button><button class="btn secondary" id="shareReport" type="button">Compartir evaluación</button></div><p class="muted">Conserva el archivo hasta recibir confirmación del responsable.</p></div>');
    const sendBtn=document.getElementById("submitEvaluation");
    if(sendBtn)sendBtn.onclick=async()=>{
     if(current.delivery?.state==="confirmed"){return;}
