@@ -225,7 +225,7 @@ function onFinish(){
   return;
  }
  const list=result.tests.map(t=>'<p><strong>'+(t.ok?"✓":"✗")+" "+t.label+'</strong> — Respuesta: '+escapeHTML(t.got)+' · Esperado: '+t.expected+' · '+(t.hasFormula?"Se usó fórmula":"Sin fórmula")+'</p>').join("");
- byId("results").innerHTML='<div class="result"><h2>Práctica de Excel completada</h2><p>Resultado diagnóstico: '+result.score+'/100 (solo piloto).</p><p>Esta pantalla no termina la evaluación general. Regresa a la prueba principal para continuar con tablas dinámicas, SQL y Python.</p><a class="btn" href="./vista-previa.html?etapa=3&amp;v=15">Volver a la etapa de Excel</a> <a class="btn" href="./vista-previa.html?etapa=4&amp;v=15">Continuar a tablas dinámicas</a></div>'+list;
+ byId("results").innerHTML='<div class="result"><h2>Práctica de Excel completada</h2><p>Resultado diagnóstico: '+result.score+'/100 (solo piloto).</p><p>Esta pantalla no termina la evaluación general. Regresa a la prueba principal para continuar con tablas dinámicas, SQL y Python.</p><a class="btn" href="./vista-previa.html?etapa=3&amp;v=16">Volver a la etapa de Excel</a> <a class="btn" href="./vista-previa.html?etapa=4&amp;v=16">Continuar a tablas dinámicas</a></div>'+list;
  show("done");
 }
 finish=onFinish;
