@@ -340,6 +340,20 @@ function moveAfterSave(skipped){
 $("saveAndNextPivot").onclick=()=>moveAfterSave(false);
 $("skipPivot").onclick=()=>moveAfterSave(true);
 if(inEvaluation)$("backToEvaluation").hidden=true;
+window.addEventListener("message",event=>{
+ if(!inEvaluation||event.origin!==location.origin||event.data?.type!=="MVM_PIVOT_RESTORE"||event.data.version!==21)return;
+ const source=event.data.snapshots||{};
+ const recovered={};
+ for(const n of [1,2,3])if(source[n]&&source[n].id===n)recovered[n]=source[n];
+ snapshots=recovered;
+ const count=Object.keys(recovered).length;
+ activeExercise=Math.min(3,count+1);
+ resetBuilder();renderTask();
+ if(count)$("savedState").textContent=count+" de 3 ejercicios recuperados. Continúa con el ejercicio "+activeExercise+".";
+});
 onUpdate();renderTask();
+if(inEvaluation)window.addEventListener("load",()=>{
+ window.parent.postMessage({type:"MVM_PIVOT_RESTORE_REQUEST",version:21},location.origin);
+});
 })();
 </script><script src="./mvm-monitor.js?v=21"></script></body></html>
