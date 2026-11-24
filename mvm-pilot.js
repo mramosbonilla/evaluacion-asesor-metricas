@@ -66,6 +66,7 @@ function monitoringSummary(){
    fields[key]=total;
   }
  }
+ const copyEvents=[parent,...sources].reduce((z,x)=>z+Number(x.copyAttempts||0),0);
  const pasteEvents=[parent,...sources].reduce((z,x)=>z+Number(x.pasteAttempts||0),0);
  const dropEvents=[parent,...sources].reduce((z,x)=>z+Number(x.dropAttempts||0),0);
  const legacyBlockedPaste=[parent,...sources].filter(x=>x.pasteAllowed!==true).reduce((z,x)=>z+Number(x.pasteAttempts||0),0);
@@ -73,7 +74,8 @@ function monitoringSummary(){
  const alerts=[];
  if(tabs)alerts.push({code:"TAB_HIDDEN",level:"revisar",count:tabs,message:"La pestaña del examen dejó de estar visible "+tabs+" veces. No es posible saber qué pantalla se utilizó."});
  if(blur)alerts.push({code:"FOCUS_LOST",level:"informativo",count:blur,message:"La ventana perdió el foco "+blur+" veces; también puede suceder por funciones normales del navegador."});
- if(pasteEvents||dropEvents)alerts.push({code:"PASTE_DETECTED",level:"revisar",count:pasteEvents+dropEvents,message:"Se registraron "+pasteEvents+" intentos de pegar y "+dropEvents+" de arrastrar contenido hacia respuestas. En la versión actual se permite pegar, pero el uso de respuestas externas está prohibido. Revisar el contexto; el evento no prueba de dónde salió el texto."});
+ if(pasteEvents||dropEvents)alerts.push({code:"PASTE_DETECTED",level:"revisar",count:pasteEvents+dropEvents,message:"Se registraron "+pasteEvents+" eventos de pegado y "+dropEvents+" de arrastrar contenido en respuestas. El evento no permite conocer el origen del texto; revisar con el candidato."});
+ if(copyEvents)alerts.push({code:"COPY_DETECTED",level:"informativo",count:copyEvents,message:"Se registraron "+copyEvents+" acciones de copiar contenido dentro de áreas de respuesta. No permite saber si también se copió información en otras aplicaciones."});
  for(const f of Object.values(fields)){
   const longForm=f.field.startsWith("caso_")||f.field==="consulta_sql"||f.field==="codigo_python";
   // Calibration rule, not a diagnosis: all indicators are required at once.
@@ -99,7 +101,7 @@ function monitoringSummary(){
   policy:"Los umbrales de escritura son orientativos y no validados como detector de fraude. Las métricas no afectan la calificación ni constituyen prueba de irregularidad; requieren revisión contextual y posibilidad de aclaración.",
   tabHiddenCount:tabs,hiddenSeconds:Math.round(Number(parent.hiddenMilliseconds||0)/1000),
   windowFocusLossCount:blur,windowUnfocusedSeconds:Math.round(Number(parent.focusLossMilliseconds||0)/1000),
-  pasteEvents,pasteAttempts:pasteEvents,dropEvents,blockedPasteAttempts:legacyBlockedPaste,blockedDropAttempts:0,fields,alerts,detail:{parent,tools:data.tools||{}}};
+  copyEvents,pasteEvents,pasteAttempts:pasteEvents,dropEvents,blockedPasteAttempts:legacyBlockedPaste,blockedDropAttempts:0,fields,alerts,detail:{parent,tools:data.tools||{}}};
 }
 function collect(){
  const elapsed=current.startedAt?Math.max(0,Math.round((Date.now()-Date.parse(current.startedAt))/1000)):0;
@@ -174,7 +176,7 @@ render=function(){
   const area=document.getElementById("body");
   area.insertAdjacentHTML("beforeend",'<div class="question"><h3>'+(INVITE_CODE?"Prueba de experiencia · Invitación "+INVITE_CODE:"Prueba de selección simulada")+'</h3><p>'+(INVITE_CODE?"Has recibido una invitación para probar la evaluación de Asesor de Métricas de MVM. La prueba dura hasta 75 minutos, seguida de un breve cuestionario de comentarios. Tus respuestas solo se guardan en este dispositivo hasta que <strong>descargues y compartas tu archivo</strong> con la persona que te invitó. No verás tu nota.":"Puedes realizar un intento de práctica. El resultado se guarda temporalmente en este navegador y se descarga como archivo JSON; no se envía automáticamente.")+'</p><p><strong>Importante:</strong> utiliza un navegador actualizado y evita cerrar o recargar una práctica antes de pulsar Guardar o Terminar. Los comentarios no afectan tu nota.</p><button class="btn" id="beginPilot" type="button">'+(current.startedAt?"Continuar prueba iniciada":"Comenzar prueba de 75 minutos")+'</button></div>');
   if(INVITE_CODE){
-   area.insertAdjacentHTML("beforeend",'<div class="question"><h3>Aviso de registro de interacciones</h3><p>Durante esta prueba se contará cuántas veces la pestaña deja de estar visible, los eventos de pegado registrados y métricas de velocidad de escritura, pausas, borrados pequeños y revisiones extensas de texto o código en las respuestas. <strong>No se registra el contenido del portapapeles, la pantalla, los sitios externos ni la actividad en otras aplicaciones.</strong> Las alertas combinan señales y no determinan la nota ni demuestran fraude o uso de otro equipo: solo sirven para una revisión contextual.</p><label style="display:flex;align-items:flex-start;gap:10px"><input id="consentMonitor" type="checkbox" style="margin-top:4px"> He leído y acepto el registro de estas métricas de interacción para el piloto.</label></div>');
+   area.insertAdjacentHTML("beforeend",'<div class="question"><h3>Aviso de registro de interacciones</h3><p>Durante esta prueba se contará cuántas veces la pestaña deja de estar visible, los eventos de copiar o pegar en campos de respuesta y métricas de velocidad de escritura, pausas, borrados pequeños y revisiones extensas de texto o código en las respuestas. <strong>No se registra el contenido del portapapeles, la pantalla, los sitios externos ni la actividad en otras aplicaciones.</strong> Las alertas combinan señales y no determinan la nota ni demuestran fraude o uso de otro equipo: solo sirven para una revisión contextual.</p><label style="display:flex;align-items:flex-start;gap:10px"><input id="consentMonitor" type="checkbox" style="margin-top:4px"> He leído y acepto el registro de estas métricas de interacción para el piloto.</label></div>');
    const consent=document.getElementById("consentMonitor");if(consent)consent.checked=!!current.monitoring.consentAt;
   }
   area.insertAdjacentHTML("beforeend",'<div class="question" style="border:2px solid #c87923;background:#fff8eb"><h3>IMPORTANTE · Prueba individual de conocimientos</h3><p><strong>Esta evaluación comprueba tus conocimientos y razonamiento, no tu habilidad para obtener respuestas de herramientas de inteligencia artificial.</strong> No se permite consultar ChatGPT, Copilot, Gemini, otras IA, sitios web, personas o dispositivos externos para recibir, copiar y pegar, o transcribir respuestas. Debes resolver cada actividad por tus propios medios, utilizando únicamente los datos y herramientas incorporados en esta evaluación. <strong>Incumplir estas reglas constituye una falta a la integridad de la prueba.</strong></p><label style="display:flex;gap:10px;align-items:flex-start"><input id="integrityAgreement" type="checkbox" style="margin-top:4px"> Declaro haber leído y comprendido las reglas y me comprometo a resolver personalmente la evaluación sin asistencia externa.</label></div>');
@@ -197,7 +199,7 @@ render=function(){
    '<p>Excel: <strong>'+(excelPilotReport?'registrado':'sin entrega')+'</strong> · Tablas dinámicas: <strong>'+pivotCompleted+'/3 ejercicios guardados</strong></p>'+
    '<p>SQL: <strong>'+(current.sql?'registrado':'sin entrega')+'</strong> · Python: <strong>'+(current.python?'registrado':'sin entrega')+'</strong></p></div>'+
    '<p><strong>La calificación y el ranking son privados.</strong> El coordinador revisará las respuestas cuando reciba el archivo. No se muestran las claves aquí.</p>'+
-   (current.finishedAt?'<p class="muted"><strong>Registro de interacciones:</strong> '+monitoringSummary().tabHiddenCount+' salidas de pestaña, '+monitoringSummary().pasteEvents+' eventos de pegado registrados y '+monitoringSummary().alerts.length+' observaciones. No modifican la nota.</p>':'')+
+
    (current.finishedAt?
     '<div class="question"><p><strong>Paso final:</strong> completa los comentarios de la sección siguiente. Después descarga el archivo y <strong>envíalo por correo o WhatsApp a la persona que te invitó</strong>. Las respuestas no se envían automáticamente.</p><p><strong>Archivo:</strong> <code>'+safeHtml(filename(current))+'</code></p></div>':
     '<div class="question"><p>Si algo quedó incompleto, puedes volver a la sección correspondiente antes de entregar. Al cerrar se archivará este intento.</p><button class="btn" id="closePilot" type="button">Finalizar prueba y descargar informe</button></div>');
@@ -215,19 +217,6 @@ render=function(){
  }
  updateTop();
 };
-function displayPasteNotice(detail){
- const parent=document.getElementById("pilotTop");if(!parent)return;
- let banner=document.getElementById("mvmExamPasteWarning");
- if(!banner){
-  banner=document.createElement("div");banner.id="mvmExamPasteWarning";
-  banner.setAttribute("role","alert");
-  banner.style.cssText="background:#fff1df;border:2px solid #b94821;border-radius:10px;padding:12px 15px;margin:12px 0;color:#72301c";
-  banner.innerHTML='<strong>ALERTA IMPORTANTE · Se registró un pegado en una respuesta</strong><p style="margin:5px 0">Recuerda: está prohibido recibir, copiar y pegar, o transcribir respuestas obtenidas de IA o fuentes externas. Incumplir esta regla constituye una falta a la integridad de la prueba. Esta acción quedará registrada para revisión.</p><button type="button" class="btn secondary" id="dismissPasteNotice" style="padding:6px 10px">Entendido</button>';
-  parent.insertAdjacentElement("afterend",banner);
-  banner.querySelector("#dismissPasteNotice").onclick=()=>banner.remove();
- }
- banner.dataset.source=detail.source||"evaluation";
-}
 const originalGo=go;
 go=function(i){
  if(current.finishedAt&&Number(i)!==8){alert("Este intento ya fue finalizado. Usa «Crear siguiente candidato simulado» para hacer otra prueba.");return;}
@@ -352,10 +341,6 @@ window.addEventListener("message",event=>{
   if(frame?.contentWindow&&(!event.source||event.source===frame.contentWindow)){
    frame.contentWindow.postMessage({type:"MVM_PIVOT_RESTORE",version:21,snapshots:current.pivot?.snapshots||{}},location.origin);
   }
-  return;
- }
- if(msg.type==="MVM_PASTE_NOTICE"&&msg.version===21){
-  if(current.monitoring.consentAt)displayPasteNotice(msg);
   return;
  }
  if(msg.type==="MVM_MONITOR_UPDATE"&&msg.version===1){
