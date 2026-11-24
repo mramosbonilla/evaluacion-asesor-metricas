@@ -86,7 +86,7 @@ function doPost(e) {
         // No sobrescribir resultados. Solo confirmar si los bytes coinciden,
         // por ejemplo después de reintentar una entrega idéntica.
         const saved=existing.result.content
-          ?Utilities.newBlob(Utilities.base64Decode(String(existing.result.content).replace(/\\s/g,""))).getDataAsString("UTF-8")
+          ?Utilities.newBlob(Utilities.base64Decode(String(existing.result.content).replace(/\s/g,""))).getDataAsString("UTF-8")
           :null;
         if(saved!==raw)throw Error("Intento recibido con datos diferentes");
         ok=true;
