@@ -271,6 +271,15 @@ function start(){
   alert("La recepción segura de esta evaluación aún no está habilitada para este enlace. Contacta al responsable antes de comenzar.");
   return;
  }
+ try{
+  const probe="mvm_storage_test_v25";
+  localStorage.setItem(probe,"ok");
+  if(localStorage.getItem(probe)!=="ok")throw Error("storage");
+  localStorage.removeItem(probe);
+ }catch(error){
+  alert("Este navegador no permite guardar la evaluación de forma segura. Activa el almacenamiento del navegador o utiliza otro dispositivo antes de empezar.");
+  return;
+ }
  if(!current.integrityAcknowledgedAt&&!document.getElementById("integrityAgreement")?.checked){
   alert("Para comenzar debes leer y aceptar las reglas de conocimientos propios y ausencia de asistencia externa.");return;
  }
