@@ -27,7 +27,9 @@ function send(data){
   function clean(){window.removeEventListener("message",ack);clearTimeout(timer);form.remove();frame.remove();}
   function finish(error,res){if(settled)return;settled=true;clean();error?reject(error):resolve(res);}
   function ack(event){
-   if(event.source!==frame.contentWindow)return;
+   // Apps Script HtmlService may render inside a nested Google-hosted iframe,
+   // so event.source may differ from frame.contentWindow. Verify Google origin
+   // plus a fresh unpredictable nonce and the exact attempt ID instead.
    const origin=String(event.origin||"");
    if(!/^https:\/\/(?:script\.google\.com|script\.googleusercontent\.com|[a-z0-9-]+-script\.googleusercontent\.com)$/.test(origin))return;
    const msg=event.data;
