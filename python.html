@@ -24,8 +24,8 @@ table{border-collapse:collapse;width:100%;font-size:14px}th,td{border:1px solid 
 <h2>Tu desafío</h2>
 <p><strong>MVM produce, distribuye y vende libros.</strong> Para analizar las ventas de sus títulos editoriales, dispone del archivo <code>ventas_mvm.csv</code>. Usando <strong>pandas</strong>, crea una tabla agrupada por <code>categoria</code> que muestre el total de unidades y el importe total. Ordena las categorías de mayor a menor importe.</p>
 <div class="note"><strong>Pista técnica:</strong> el importe de cada registro se calcula como <code>unidades * precio_unitario</code>. Puedes utilizar <code>groupby</code>, <code>agg</code>, <code>sort_values</code> y <code>print</code> para mostrar el resultado. No se evalúa automáticamente en esta demostración.</div>
-<div class="row"><a href="./vista-previa.html?etapa=6&amp;v=12">Volver a la etapa Python</a><span class="muted">·</span><a href="./vista-previa.html?etapa=7&amp;v=12">Continuar a casos abiertos</a><span class="muted">·</span><a href="./excel-pivot.html">Tablas dinámicas</a></div>
-<p class="muted small">La primera carga de Python y pandas descarga archivos grandes; requiere Internet. No se envían los datos ni el código ejecutado a un servidor de evaluación.</p>
+<div class="row"><a href="./vista-previa.html?etapa=6&amp;v=12">Volver a la etapa Python</a><span class="muted">·</span><span class="muted">Tras terminar Python continuarás a los tres casos abiertos</span><span class="muted">·</span><a href="./excel-pivot.html">Tablas dinámicas</a></div>
+<p class="muted small">La primera carga de Python y pandas descarga archivos grandes y requiere Internet. Al terminar, el código y la salida se conservarán en el informe local del piloto, sin enviarlos a un servidor de recepción.</p>
 </article>
 <article><h2>Estructura de datos</h2><p>CSV de ejemplo de MVM disponible en el sistema de archivos temporal de Python como <code>ventas_mvm.csv</code> (12 registros).</p>
 <div class="scroll"><table><thead><tr><th>fecha</th><th>tienda</th><th>categoria</th><th>titulo</th><th>unidades</th><th>precio_unitario</th></tr></thead>
@@ -40,7 +40,7 @@ print("Vista inicial de las ventas:")
 print(df.head())
 
 # Reto: calcula importe_total y agrupa por categoria.</textarea>
-<div class="row"><button id="run" disabled>Ejecutar Python</button><button id="restore" class="secondary">Restablecer código</button><button id="reload" class="secondary" disabled>Restablecer archivo CSV</button></div>
+<div class="row"><button id="run" disabled>Ejecutar Python</button><button id="restore" class="secondary">Restablecer código</button><button id="reload" class="secondary" disabled>Restablecer archivo CSV</button><button id="finishPython">Terminar Python y continuar</button></div>
 <div id="status" role="status" aria-live="polite">Preparando motor Python…</div>
 <h2>Salida de Python</h2>
 <pre id="console" aria-live="polite">Esperando la inicialización del motor…</pre>
@@ -66,7 +66,7 @@ const csv=[
 "2026-02-08,Sur,No ficcion,Rutas del Caribe,5,520",
 "2026-02-08,Norte,Academico,Atlas de ideas,3,790"
 ].join("\n")+"\n";
-let py=null,running=false,output=[];
+let py=null,running=false,output=[],lastExecution=null,runCount=0;
 function status(msg,err=false){$("status").textContent=msg;$("status").toggleAttribute("data-error",err);$("status").toggleAttribute("data-ready",!!py&&!err);}
 function outputText(t){output.push(t);$("console").textContent=output.join("\n");}
 function restoreFile(){if(!py)return;py.FS.writeFile("ventas_mvm.csv",csv);status("Archivo CSV de ventas de libros restablecido.");}
@@ -78,14 +78,23 @@ async function execute(){
  $("console").textContent="Ejecutando código…";
  status("Ejecutando Python…");
  try{
-  const result=await py.runPythonAsync($("code").value);
+  const submitted=$("code").value;const result=await py.runPythonAsync(submitted);lastExecution={code:submitted,success:true,executedAt:new Date().toISOString(),executionCount:++runCount};
   if(!output.length&&result!==undefined&&result!==null){outputText(String(result));}
   if(!output.length)$("console").textContent="Código ejecutado sin errores. No hubo salida de texto; usa print(...) para mostrar resultados.";
-  status("Código ejecutado correctamente.");
- }catch(err){outputText("ERROR: "+String(err.message||err));status("La ejecución produjo un error; revisa la salida.",true);}
+  lastExecution.output=$("console").textContent.slice(0,30000);status("Código ejecutado correctamente.");
+ }catch(err){outputText("ERROR: "+String(err.message||err));lastExecution={code:$("code").value,success:false,error:String(err.message||err),output:$("console").textContent.slice(0,30000),executionCount:++runCount};status("La ejecución produjo un error; revisa la salida.",true);}
  finally{running=false;$("run").disabled=false;}
 }
 $("run").onclick=execute;
+$("finishPython").onclick=()=>{
+ if(running){alert("La ejecución de Python aún está en curso. Intenta terminar cuando finalice.");return;}
+ if(!confirm("¿Terminar la práctica de Python? Se registrará tu código y, si lo ejecutaste, su última salida. No se mostrará una calificación."))return;
+ const current=$("code").value;
+ const report={type:"MVM_PYTHON_COMPLETE",version:16,completedAt:new Date().toISOString(),code:current,lastExecution:lastExecution&&lastExecution.code===current?lastExecution:null,executions:runCount,engineReady:!!py};
+ if(new URLSearchParams(location.search).get("embed")==="1"&&window.parent!==window)window.parent.postMessage(report,location.origin);
+ else{try{localStorage.setItem("mvm-pilot-python-pending",JSON.stringify(report));}catch(e){}location.href="./vista-previa.html?etapa=7&v=16";}
+};
+
 $("code").addEventListener("keydown",e=>{
  if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)){e.preventDefault();execute();}
  if(e.key==="Tab"&&!e.ctrlKey&&!e.metaKey){e.preventDefault();const a=e.target,v=a.value,x=a.selectionStart,y=a.selectionEnd;a.value=v.slice(0,x)+"    "+v.slice(y);a.selectionStart=a.selectionEnd=x+4;}
