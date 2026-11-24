@@ -246,6 +246,9 @@ if(new URLSearchParams(location.search).get("embed")==="1"){
  byId("candidate").value="Participante de prueba";
  byId("email").value="";
  byId("goExcel").click();
+ // Embedded assessments use the single 75-minute clock in the parent evaluation.
+ if(interval){clearInterval(interval);interval=null;}
+ byId("clock").style.display="none";
  byId("excel").querySelector(".footer .hint").textContent="Fórmulas obligatorias en J3, J4, J5 y J7 · Ayudas en H y K · Terminar esta práctica no finaliza la evaluación.";
 }
 })();
