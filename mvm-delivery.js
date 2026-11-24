@@ -7,20 +7,34 @@ function endpoint(){
  const url=String(cfg.endpoint||"").trim();
  return /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec(?:\?.*)?$/.test(url)?url:"";
 }
-function available(){return !!endpoint();}
+function invitation(){
+ const qs=new URLSearchParams(location.search),code=String(qs.get("tester")||"").toUpperCase();
+ const token=String(qs.get("token")||"").toLowerCase();
+ return /^P(?:0[1-9]|1[0-5])$/.test(code)&&/^[a-f0-9]{64}$/.test(token)?{code,token}:null;
+}
+function secureNonce(){
+ if(!window.crypto?.getRandomValues)throw Error("El navegador no permite una conexión de entrega segura.");
+ const bytes=new Uint8Array(24);window.crypto.getRandomValues(bytes);
+ return Array.from(bytes,b=>b.toString(16).padStart(2,"0")).join("");
+}
+function available(){return !!endpoint()&&!!invitation()&&!!window.crypto?.getRandomValues;}
+function secureRequired(){return window.MVM_RECEIVER_CONFIG?.requireSecureDelivery===true;}
 function send(data){
  return new Promise((resolve,reject)=>{
-  if(!available()){reject(Error("Receptor de evaluaciones no configurado."));return;}
-  if(!data||!data.attemptId||!data.candidate||!data.finishedAt){reject(Error("Evaluación incompleta."));return;}
-  const nonce="MVM-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,12);
+  if(!available()){reject(Error("El enlace de evaluación no tiene una recepción segura activa."));return;}
+  const invite=invitation();
+  if(!data||!data.attemptId||!data.candidate||!data.finishedAt||data.pilot?.invitationCode!==invite?.code){
+   reject(Error("Evaluación o invitación incompleta."));return;
+  }
+  let nonce;try{nonce=secureNonce();}catch(e){reject(e);return;}
   const frame=document.createElement("iframe"),form=document.createElement("form");
-  frame.name="mvm_delivery_"+Math.random().toString(36).slice(2);
+  frame.name="mvm_delivery_"+secureNonce().slice(0,24);
   frame.title="Entrega privada de resultados";
   frame.style.display="none";
   form.style.display="none";
   form.method="POST";form.action=endpoint();form.target=frame.name;
   form.enctype="application/x-www-form-urlencoded";
-  for(const [key,value] of Object.entries({payload:JSON.stringify(data),nonce,returnOrigin:location.origin})){
+  for(const [key,value] of Object.entries({payload:JSON.stringify(data),nonce,invitationCode:invite.code,invitationToken:invite.token})){
    const input=document.createElement("input");input.type="hidden";input.name=key;input.value=value;form.append(input);
   }
   let settled=false;
@@ -33,7 +47,7 @@ function send(data){
    const origin=String(event.origin||"");
    if(!/^https:\/\/(?:script\.google\.com|script\.googleusercontent\.com|[a-z0-9-]+-script\.googleusercontent\.com)$/.test(origin))return;
    const msg=event.data;
-   if(!msg||msg.type!=="MVM_DELIVERY_RECEIPT"||msg.nonce!==nonce||msg.attemptId!==data.attemptId)return;
+   if(!msg||msg.type!=="MVM_DELIVERY_RECEIPT"||msg.version!==25||msg.nonce!==nonce||msg.attemptId!==data.attemptId)return;
    if(msg.ok!==true){finish(Error("El receptor rechazó la entrega. Conserva una copia y contacta al coordinador."));return;}
    finish(null,{ok:true,attemptId:data.attemptId,receivedAt:msg.receivedAt||null});
   }
@@ -43,5 +57,5 @@ function send(data){
   try{form.submit();}catch(e){finish(Error("No fue posible completar el envío desde este navegador."));}
  });
 }
-window.MVMDelivery={available,send};
+window.MVMDelivery={available,send,secureRequired};
 })();
