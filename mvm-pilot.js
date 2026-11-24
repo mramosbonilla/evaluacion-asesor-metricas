@@ -150,6 +150,10 @@ render=function(){
  if(at===0){
   const area=document.getElementById("body");
   area.insertAdjacentHTML("beforeend",'<div class="question"><h3>'+(INVITE_CODE?"Prueba de experiencia · Invitación "+INVITE_CODE:"Prueba de selección simulada")+'</h3><p>'+(INVITE_CODE?"Has recibido una invitación para probar la evaluación de Asesor de Métricas de MVM. La prueba dura hasta 75 minutos, seguida de un breve cuestionario de comentarios. Tus respuestas solo se guardan en este dispositivo hasta que <strong>descargues y compartas tu archivo</strong> con la persona que te invitó. No verás tu nota.":"Puedes realizar un intento de práctica. El resultado se guarda temporalmente en este navegador y se descarga como archivo JSON; no se envía automáticamente.")+'</p><p><strong>Importante:</strong> utiliza un navegador actualizado y evita cerrar o recargar una práctica antes de pulsar Guardar o Terminar. Los comentarios no afectan tu nota.</p><button class="btn" id="beginPilot" type="button">'+(current.startedAt?"Continuar prueba iniciada":"Comenzar prueba de 75 minutos")+'</button></div>');
+  if(INVITE_CODE){
+   area.insertAdjacentHTML("beforeend",'<div class="question"><h3>Aviso de registro de interacciones</h3><p>Durante esta prueba se contará cuántas veces la pestaña deja de estar visible, los intentos de pegar bloqueados y métricas de velocidad, borrados y correcciones en las respuestas. <strong>No se registra el contenido del portapapeles, la pantalla, los sitios externos ni la actividad en otras aplicaciones.</strong> Estos indicadores no determinan la nota ni demuestran fraude: solo sirven para revisión con contexto.</p><label style="display:flex;align-items:flex-start;gap:10px"><input id="consentMonitor" type="checkbox" style="margin-top:4px"> He leído y acepto el registro de estas métricas de interacción para el piloto.</label></div>');
+   const consent=document.getElementById("consentMonitor");if(consent)consent.checked=!!current.monitoring.consentAt;
+  }
   document.getElementById("beginPilot").onclick=()=>start();
  }
  if(at===1){
@@ -167,6 +171,7 @@ render=function(){
    '<p>Excel: <strong>'+(excelPilotReport?'registrado':'sin entrega')+'</strong> · Tablas dinámicas: <strong>'+pivotCompleted+'/3 ejercicios guardados</strong></p>'+
    '<p>SQL: <strong>'+(current.sql?'registrado':'sin entrega')+'</strong> · Python: <strong>'+(current.python?'registrado':'sin entrega')+'</strong></p></div>'+
    '<p><strong>La calificación y el ranking son privados.</strong> El coordinador revisará las respuestas cuando reciba el archivo. No se muestran las claves aquí.</p>'+
+   (current.finishedAt?'<p class="muted"><strong>Registro de interacciones:</strong> '+monitoringSummary().tabHiddenCount+' salidas de pestaña, '+monitoringSummary().blockedPasteAttempts+' intentos de pegar bloqueados y '+monitoringSummary().alerts.length+' observaciones. No modifican la nota.</p>':'')+
    (current.finishedAt?
     '<div class="question"><p><strong>Paso final:</strong> completa los comentarios de la sección siguiente. Después descarga el archivo y <strong>envíalo por correo o WhatsApp a la persona que te invitó</strong>. Las respuestas no se envían automáticamente.</p><p><strong>Archivo:</strong> <code>'+safeHtml(filename(current))+'</code></p></div>':
     '<div class="question"><p>Si algo quedó incompleto, puedes volver a la sección correspondiente antes de entregar. Al cerrar se archivará este intento.</p><button class="btn" id="closePilot" type="button">Finalizar prueba y descargar informe</button></div>');
@@ -192,6 +197,11 @@ go=function(i){
  originalGo(i);save();
 };
 function start(){
+ if(INVITE_CODE&&!current.monitoring.consentAt&&!document.getElementById("consentMonitor")?.checked){
+  alert("Antes de empezar, revisa y acepta el aviso de registro de interacciones.");return;
+ }
+ if(!current.monitoring.consentAt)current.monitoring.consentAt=now();
+ if(window.MVMInteractionMonitor)window.MVMInteractionMonitor.start();
  if(!current.startedAt)current.startedAt=now();
  save();go(1);
 }
@@ -243,6 +253,10 @@ function finish(reason){
  ].filter(x=>x&&x[0]!=="0");
  if(reason!=="tiempo_agotado"&&missing.length&&!confirm("Hay actividades pendientes: "+missing.join("; ")+". ¿Finalizar de todas formas?"))return;
  current.finishedAt=now();current.finishReason=reason;
+ if(window.MVMInteractionMonitor){
+  window.MVMInteractionMonitor.stop();
+  current.monitoring.parent=window.MVMInteractionMonitor.snapshot();
+ }
  const report=collect();
  archive.push(report);store(ARCHIVE,archive);store(ACTIVE,current);
  const last=at;at=8;updateCurrentStageUrl();render();save();
@@ -288,6 +302,16 @@ document.addEventListener("change",e=>{if(e.target?.name==="knowAnswer"){knowled
 window.addEventListener("message",event=>{
  if(event.origin!==location.origin||!event.data||!current.startedAt||current.finishedAt)return;
  const msg=event.data;
+ if(msg.type==="MVM_MONITOR_UPDATE"&&msg.version===1){
+  const source=String(msg.source||""),sid=String(msg.sessionId||"");
+  if(!["excel","sql","python","pivot"].includes(source)||!/^S[a-z0-9-]+$/i.test(sid)||!msg.snapshot||msg.snapshot.source!==source)return;
+  current.monitoring.tools[source] ||= {};
+  current.monitoring.tools[source][sid]=msg.snapshot;
+  const keys=Object.keys(current.monitoring.tools[source]);
+  if(keys.length>30)delete current.monitoring.tools[source][keys[0]];
+  store(ACTIVE,current);
+  return;
+ }
  if(msg.type==="MVM_EXCEL_COMPLETE"&&msg.version===7){
   // The existing page listener updates excelPilotReport and navigates.
   current.excel={score:Number(msg.score)||0,answers:msg.answers||{},helperFormulas:msg.helperFormulas||[],formulaChecks:msg.formulaChecks||[],completedAt:now()};
