@@ -24,8 +24,8 @@ table{border-collapse:collapse;width:100%;font-size:14px}th,td{border:1px solid 
 <article><h2>Tu desafío</h2>
 <p><strong>MVM produce, distribuye y vende libros</strong> a través de sus tiendas y canales de distribución. Analiza las ventas de títulos editoriales en tres sucursales. Debes preparar un resumen con las columnas <code>categoria</code>, <code>total_unidades</code> y <code>importe_total</code>. Agrupa por categoría, suma unidades e ingresos y ordena por ingresos descendentes.</p>
 <div class="note"><strong>Condiciones:</strong> utiliza las tablas <code>ventas</code> y <code>productos</code> y su relación <code>producto_id</code>. El valor de cada línea es <code>unidades * precio_unitario</code>. Puedes ejecutar tantas consultas como necesites.</div>
-<p class="muted small">Esto es un laboratorio para comprobar el funcionamiento. No se guardan consultas ni se envían respuestas a ninguna empresa o servidor.</p>
-<div class="row"><a href="./vista-previa.html?etapa=5&amp;v=12">Volver a la etapa SQL</a><span class="muted">·</span><a href="./excel-pivot.html">Tablas dinámicas</a><span class="muted">·</span><a href="./vista-previa.html?etapa=6&amp;v=12">Continuar a Python</a></div>
+<p class="muted small">Esto es un laboratorio para comprobar el funcionamiento. La consulta y su último resultado se incorporarán al archivo local de evaluación al pulsar «Terminar SQL». No se envían a servidores de recepción.</p>
+<div class="row"><a href="./vista-previa.html?etapa=5&amp;v=12">Volver a la etapa SQL</a><span class="muted">·</span><a href="./excel-pivot.html">Tablas dinámicas</a><span class="muted">·</span><span class="muted">Al finalizar la práctica, regresarás a la evaluación para continuar a Python</span></div>
 </article>
 <article><h2>Tablas disponibles</h2>
 <div class="scroll"><table><thead><tr><th>Tabla</th><th>Campos</th><th>Descripción</th></tr></thead><tbody>
@@ -40,7 +40,7 @@ table{border-collapse:collapse;width:100%;font-size:14px}th,td{border:1px solid 
 FROM ventas AS v
 JOIN productos AS p ON p.producto_id = v.producto_id
 LIMIT 8;</textarea>
-<div class="row"><button class="btn" id="run" disabled>Ejecutar consulta</button><button class="btn secondary" id="example">Mostrar ejemplo inicial</button><button class="btn secondary" id="reset">Restablecer datos</button></div>
+<div class="row"><button class="btn" id="run" disabled>Ejecutar consulta</button><button class="btn secondary" id="example">Mostrar ejemplo inicial</button><button class="btn secondary" id="reset">Restablecer datos</button><button class="btn" id="finishSQL" type="button">Terminar SQL y continuar a Python</button></div>
 <div id="state" role="status" aria-live="polite">Cargando SQLite…</div>
 <h3>Resultados de ejecución</h3>
 <div id="output" class="scroll" aria-live="polite"><p class="muted">Los resultados aparecerán aquí después de ejecutar la consulta.</p></div>
@@ -50,7 +50,7 @@ LIMIT 8;</textarea>
 <script>
 (()=>{"use strict";
 const $=id=>document.getElementById(id);
-let SQL=null,db=null;
+let SQL=null,db=null,lastExecution=null,runCount=0;
 const starter=$("editor").value;
 function status(message,error=false){$("state").textContent=message;$("state").toggleAttribute("data-error",error);$("state").toggleAttribute("data-ready",!error&&!!db);}
 function seed(){
@@ -77,11 +77,20 @@ function renderResults(sets){const out=$("output");out.replaceChildren();if(!set
  const tb=document.createElement("tbody");for(const row of data.values){const t=document.createElement("tr");for(const val of row)t.append(cellText(val));tb.append(t);}table.append(tb);wrap.append(table);out.append(wrap);
  const p=document.createElement("p");p.className="muted small";p.textContent=data.values.length+" filas devueltas";out.append(p);}}
 function execute(){if(!db)return;try{const sql=$("editor").value.trim();if(!sql){status("Escribe una consulta para ejecutar.",true);return;}
-const begin=performance.now();const data=db.exec(sql);renderResults(data);status("Consulta ejecutada correctamente en "+Math.round(performance.now()-begin)+" ms.");}
-catch(e){status("Error SQL: "+String(e.message||e),true);$("output").replaceChildren();}}
+const begin=performance.now();const data=db.exec(sql);renderResults(data);runCount++;lastExecution={query:sql,success:true,results:data.slice(0,3).map(x=>({columns:x.columns,values:x.values.slice(0,100)})),rowsReturned:data.reduce((n,x)=>n+x.values.length,0),executionCount:runCount};status("Consulta ejecutada correctamente en "+Math.round(performance.now()-begin)+" ms.");}
+catch(e){lastExecution={query:$("editor").value,success:false,error:String(e.message||e),executionCount:++runCount};status("Error SQL: "+String(e.message||e),true);$("output").replaceChildren();}}
 $("run").onclick=execute;
+$("finishSQL").onclick=()=>{
+ const current=$("editor").value.trim();
+ if(!current){alert("Debes escribir tu consulta SQL o dejarla sin resolver y continuar.");return;}
+ if(!confirm("¿Terminar la práctica de SQL? Se registrará tu consulta y el último resultado de ejecución, sin mostrarte una calificación."))return;
+ const report={type:"MVM_SQL_COMPLETE",version:16,completedAt:new Date().toISOString(),code:current,lastExecution:lastExecution&&lastExecution.query===current?lastExecution:null,executions:runCount};
+ if(new URLSearchParams(location.search).get("embed")==="1"&&window.parent!==window)window.parent.postMessage(report,location.origin);
+ else{try{localStorage.setItem("mvm-pilot-sql-pending",JSON.stringify(report));}catch(e){}location.href="./vista-previa.html?etapa=6&v=16";}
+};
+
 $("example").onclick=()=>{$("editor").value=starter;$("editor").focus();};
-$("reset").onclick=()=>{if(SQL){seed();$("output").textContent="Datos restablecidos. Ejecuta una consulta.";}}; 
+$("reset").onclick=()=>{if(SQL){seed();lastExecution=null;$("output").textContent="Datos restablecidos. Ejecuta una consulta.";}}; 
 $("editor").addEventListener("keydown",e=>{if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)){e.preventDefault();execute();}});
 async function init(){if(typeof initSqlJs!=="function"){status("No se pudo descargar el motor SQLite. Revisa Internet y actualiza la página.",true);return;}
  try{SQL=await initSqlJs({locateFile:file=>"https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.13.0/"+file});seed();$("run").disabled=false;execute();}
