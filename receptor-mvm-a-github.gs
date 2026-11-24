@@ -21,11 +21,11 @@ function mvmHash_(secret){
   return bytes.map(b=>("0"+(b&255).toString(16)).slice(-2)).join("");
 }
 function mvmInvitationCodes_(){
-  return Array.from({length:MVM_INVITE_COUNT},(_,i)=>"P"+String(i+1).padStart(2,"0"));
+  return ["P00",...Array.from({length:MVM_INVITE_COUNT},(_,i)=>"P"+String(i+1).padStart(2,"0"))];
 }
 /**
  * PROVISIÓN PRIVADA: ejecuta esta función UNA VEZ en el editor Apps Script.
- * Muestra en el registro los quince enlaces secretos para enviar individualmente.
+ * Muestra en el registro P00 de ensayo y quince enlaces para candidatos.
  * Las claves originales NO se guardan: solo el hash SHA-256 de cada una.
  */
 function mvmProvisionInvitations(){
@@ -40,7 +40,7 @@ function mvmProvisionInvitations(){
   });
   props.setProperty("MVM_INVITE_HASHES",JSON.stringify(hashes));
   Logger.log("COPIAR ESTOS ENLACES PRIVADAMENTE; NO PUBLICAR NI PEGAR EN GITHUB:\n"+links.join("\n"));
-  return {created:links.length,message:"Las 15 invitaciones se generaron. Consulta el registro de ejecución para copiarlas una sola vez."};
+  return {created:links.length,message:"Se generaron 15 invitaciones para candidatos más una invitación P00 exclusiva de ensayo. Consulta el registro de ejecución para copiarlas una sola vez."};
 }
 function mvmReceipt_(data){
   // Data is a fixed set of primitives originating only from controlled validation.
@@ -110,7 +110,7 @@ function doPost(e){
       throw Error("Tamaño de evaluación no permitido");
     code=String(params.invitationCode||"").trim().toUpperCase();
     const secret=String(params.invitationToken||"").trim().toLowerCase();
-    if(!/^P(?:0[1-9]|1[0-5])$/.test(code)||!/^[a-f0-9]{64}$/.test(secret))
+    if(!/^P(?:0[0-9]|1[0-5])$/.test(code)||!/^[a-f0-9]{64}$/.test(secret))
       throw Error("Invitación inválida");
     const prop=PropertiesService.getScriptProperties();
     const allow=JSON.parse(prop.getProperty("MVM_INVITE_HASHES")||"{}");
