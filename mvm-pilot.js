@@ -12,7 +12,7 @@ const store=(key,value)=>{try{localStorage.setItem(key,JSON.stringify(value));re
 function fresh(){
  return {schema:"MVM_PILOT_16",attemptId:"MVM-"+new Date().toISOString().slice(0,10).replace(/-/g,"")+"-"+Math.random().toString(36).slice(2,8).toUpperCase(),
  createdAt:now(),startedAt:null,finishedAt:null,finishReason:null,
- name:"",email:"",inviteCode:INVITE_CODE,feedback:{device:"",clarity:"",navigation:"",technicalIssues:"",suggestions:""},stage:0,knowledgeIndex:0,caseIndex:0,
+ name:"",email:"",inviteCode:INVITE_CODE,integrityAcknowledgedAt:null,feedback:{device:"",clarity:"",navigation:"",technicalIssues:"",suggestions:""},stage:0,knowledgeIndex:0,caseIndex:0,
  objective:Array(15).fill(-1),openCases:["","",""],excel:null,pivot:null,sql:null,python:null};
 }
 let archive=lookup(ARCHIVE);if(!Array.isArray(archive))archive=[];
@@ -20,6 +20,7 @@ let current=lookup(ACTIVE);if(!current||current.schema!=="MVM_PILOT_16")current=
 if(!Array.isArray(current.objective)||current.objective.length!==15)current.objective=Array(15).fill(-1);
 if(!Array.isArray(current.openCases)||current.openCases.length!==3)current.openCases=["","",""];
 if(!current.feedback)current.feedback={device:"",clarity:"",navigation:"",technicalIssues:"",suggestions:""};
+if(!("integrityAcknowledgedAt" in current))current.integrityAcknowledgedAt=null;
 if(INVITE_CODE)current.inviteCode=INVITE_CODE;
 if(!current.monitoring)current.monitoring={consentAt:null,parent:null,tools:{}};
 if(!current.monitoring.tools)current.monitoring.tools={};
@@ -65,13 +66,14 @@ function monitoringSummary(){
    fields[key]=total;
   }
  }
- const blockedPaste=[parent,...sources].reduce((z,x)=>z+Number(x.pasteAttempts||0),0);
- const blockedDrop=[parent,...sources].reduce((z,x)=>z+Number(x.dropAttempts||0),0);
+ const pasteEvents=[parent,...sources].reduce((z,x)=>z+Number(x.pasteAttempts||0),0);
+ const dropEvents=[parent,...sources].reduce((z,x)=>z+Number(x.dropAttempts||0),0);
+ const legacyBlockedPaste=[parent,...sources].filter(x=>x.pasteAllowed!==true).reduce((z,x)=>z+Number(x.pasteAttempts||0),0);
  const tabs=Number(parent.visibilityHiddenCount||0),blur=Number(parent.focusLossCount||0);
  const alerts=[];
  if(tabs)alerts.push({code:"TAB_HIDDEN",level:"revisar",count:tabs,message:"La pestaña del examen dejó de estar visible "+tabs+" veces. No es posible saber qué pantalla se utilizó."});
  if(blur)alerts.push({code:"FOCUS_LOST",level:"informativo",count:blur,message:"La ventana perdió el foco "+blur+" veces; también puede suceder por funciones normales del navegador."});
- if(blockedPaste||blockedDrop)alerts.push({code:"PASTE_BLOCKED",level:"revisar",count:blockedPaste+blockedDrop,message:"Se bloquearon "+blockedPaste+" pegados y "+blockedDrop+" arrastres de contenido en respuestas."});
+ if(pasteEvents||dropEvents)alerts.push({code:"PASTE_DETECTED",level:"revisar",count:pasteEvents+dropEvents,message:"Se registraron "+pasteEvents+" intentos de pegar y "+dropEvents+" de arrastrar contenido hacia respuestas. En la versión actual se permite pegar, pero el uso de respuestas externas está prohibido. Revisar el contexto; el evento no prueba de dónde salió el texto."});
  for(const f of Object.values(fields)){
   const longForm=f.field.startsWith("caso_")||f.field==="consulta_sql"||f.field==="codigo_python";
   // Calibration rule, not a diagnosis: all indicators are required at once.
@@ -97,7 +99,7 @@ function monitoringSummary(){
   policy:"Los umbrales de escritura son orientativos y no validados como detector de fraude. Las métricas no afectan la calificación ni constituyen prueba de irregularidad; requieren revisión contextual y posibilidad de aclaración.",
   tabHiddenCount:tabs,hiddenSeconds:Math.round(Number(parent.hiddenMilliseconds||0)/1000),
   windowFocusLossCount:blur,windowUnfocusedSeconds:Math.round(Number(parent.focusLossMilliseconds||0)/1000),
-  blockedPasteAttempts:blockedPaste,blockedDropAttempts:blockedDrop,fields,alerts,detail:{parent,tools:data.tools||{}}};
+  pasteEvents,pasteAttempts:pasteEvents,dropEvents,blockedPasteAttempts:legacyBlockedPaste,blockedDropAttempts:0,fields,alerts,detail:{parent,tools:data.tools||{}}};
 }
 function collect(){
  const elapsed=current.startedAt?Math.max(0,Math.round((Date.now()-Date.parse(current.startedAt))/1000)):0;
@@ -106,7 +108,7 @@ function collect(){
  candidate:{name:current.name.trim()||"Sin nombre",email:current.email.trim()||""},
  createdAt:current.createdAt,startedAt:current.startedAt,finishedAt:current.finishedAt,
  finishReason:current.finishReason||"en curso",timeLimitSeconds:4500,
- pilot:{invitationCode:current.inviteCode||INVITE_CODE||null,feedback:{...current.feedback},mode:INVITE_CODE?"PRUEBA_DE_USABILIDAD":"PILOTO_GENERAL"},
+ pilot:{invitationCode:current.inviteCode||INVITE_CODE||null,feedback:{...current.feedback},mode:INVITE_CODE?"PRUEBA_DE_USABILIDAD":"PILOTO_GENERAL",integrityAcknowledgedAt:current.integrityAcknowledgedAt},
  monitoring:monitoringSummary(),
  elapsedSeconds:current.finishedAt&&current.startedAt?Math.max(0,Math.round((Date.parse(current.finishedAt)-Date.parse(current.startedAt))/1000)):elapsed,
  overtime:elapsed>4500,
@@ -172,9 +174,11 @@ render=function(){
   const area=document.getElementById("body");
   area.insertAdjacentHTML("beforeend",'<div class="question"><h3>'+(INVITE_CODE?"Prueba de experiencia · Invitación "+INVITE_CODE:"Prueba de selección simulada")+'</h3><p>'+(INVITE_CODE?"Has recibido una invitación para probar la evaluación de Asesor de Métricas de MVM. La prueba dura hasta 75 minutos, seguida de un breve cuestionario de comentarios. Tus respuestas solo se guardan en este dispositivo hasta que <strong>descargues y compartas tu archivo</strong> con la persona que te invitó. No verás tu nota.":"Puedes realizar un intento de práctica. El resultado se guarda temporalmente en este navegador y se descarga como archivo JSON; no se envía automáticamente.")+'</p><p><strong>Importante:</strong> utiliza un navegador actualizado y evita cerrar o recargar una práctica antes de pulsar Guardar o Terminar. Los comentarios no afectan tu nota.</p><button class="btn" id="beginPilot" type="button">'+(current.startedAt?"Continuar prueba iniciada":"Comenzar prueba de 75 minutos")+'</button></div>');
   if(INVITE_CODE){
-   area.insertAdjacentHTML("beforeend",'<div class="question"><h3>Aviso de registro de interacciones</h3><p>Durante esta prueba se contará cuántas veces la pestaña deja de estar visible, los intentos de pegar bloqueados y métricas de velocidad de escritura, pausas, borrados pequeños y revisiones extensas de texto o código en las respuestas. <strong>No se registra el contenido del portapapeles, la pantalla, los sitios externos ni la actividad en otras aplicaciones.</strong> Las alertas combinan señales y no determinan la nota ni demuestran fraude o uso de otro equipo: solo sirven para una revisión contextual.</p><label style="display:flex;align-items:flex-start;gap:10px"><input id="consentMonitor" type="checkbox" style="margin-top:4px"> He leído y acepto el registro de estas métricas de interacción para el piloto.</label></div>');
+   area.insertAdjacentHTML("beforeend",'<div class="question"><h3>Aviso de registro de interacciones</h3><p>Durante esta prueba se contará cuántas veces la pestaña deja de estar visible, los eventos de pegado registrados y métricas de velocidad de escritura, pausas, borrados pequeños y revisiones extensas de texto o código en las respuestas. <strong>No se registra el contenido del portapapeles, la pantalla, los sitios externos ni la actividad en otras aplicaciones.</strong> Las alertas combinan señales y no determinan la nota ni demuestran fraude o uso de otro equipo: solo sirven para una revisión contextual.</p><label style="display:flex;align-items:flex-start;gap:10px"><input id="consentMonitor" type="checkbox" style="margin-top:4px"> He leído y acepto el registro de estas métricas de interacción para el piloto.</label></div>');
    const consent=document.getElementById("consentMonitor");if(consent)consent.checked=!!current.monitoring.consentAt;
   }
+  area.insertAdjacentHTML("beforeend",'<div class="question" style="border:2px solid #c87923;background:#fff8eb"><h3>IMPORTANTE · Prueba individual de conocimientos</h3><p><strong>Esta evaluación comprueba tus conocimientos y razonamiento, no tu habilidad para obtener respuestas de herramientas de inteligencia artificial.</strong> No se permite consultar ChatGPT, Copilot, Gemini, otras IA, sitios web, personas o dispositivos externos para recibir, copiar o transcribir respuestas. Debes resolver cada actividad por tus propios medios, utilizando únicamente los datos y herramientas incorporados en esta evaluación.</p><p><strong>Pegar texto no está técnicamente bloqueado</strong>, pero los intentos de pegado en las respuestas generan una advertencia visible y quedan registrados para revisión. Lo mismo sucede con las salidas de la pestaña. No generan una sanción automática y tendrás oportunidad de aclarar cualquier situación.</p><label style="display:flex;gap:10px;align-items:flex-start"><input id="integrityAgreement" type="checkbox" style="margin-top:4px"> Declaro haber leído y comprendido las reglas y me comprometo a resolver personalmente la evaluación sin asistencia externa.</label></div>');
+  const integrity=document.getElementById("integrityAgreement");if(integrity)integrity.checked=!!current.integrityAcknowledgedAt;
   document.getElementById("beginPilot").onclick=()=>start();
  }
  if(at===1){
@@ -192,7 +196,7 @@ render=function(){
    '<p>Excel: <strong>'+(excelPilotReport?'registrado':'sin entrega')+'</strong> · Tablas dinámicas: <strong>'+pivotCompleted+'/3 ejercicios guardados</strong></p>'+
    '<p>SQL: <strong>'+(current.sql?'registrado':'sin entrega')+'</strong> · Python: <strong>'+(current.python?'registrado':'sin entrega')+'</strong></p></div>'+
    '<p><strong>La calificación y el ranking son privados.</strong> El coordinador revisará las respuestas cuando reciba el archivo. No se muestran las claves aquí.</p>'+
-   (current.finishedAt?'<p class="muted"><strong>Registro de interacciones:</strong> '+monitoringSummary().tabHiddenCount+' salidas de pestaña, '+monitoringSummary().blockedPasteAttempts+' intentos de pegar bloqueados y '+monitoringSummary().alerts.length+' observaciones. No modifican la nota.</p>':'')+
+   (current.finishedAt?'<p class="muted"><strong>Registro de interacciones:</strong> '+monitoringSummary().tabHiddenCount+' salidas de pestaña, '+monitoringSummary().pasteEvents+' eventos de pegado registrados y '+monitoringSummary().alerts.length+' observaciones. No modifican la nota.</p>':'')+
    (current.finishedAt?
     '<div class="question"><p><strong>Paso final:</strong> completa los comentarios de la sección siguiente. Después descarga el archivo y <strong>envíalo por correo o WhatsApp a la persona que te invitó</strong>. Las respuestas no se envían automáticamente.</p><p><strong>Archivo:</strong> <code>'+safeHtml(filename(current))+'</code></p></div>':
     '<div class="question"><p>Si algo quedó incompleto, puedes volver a la sección correspondiente antes de entregar. Al cerrar se archivará este intento.</p><button class="btn" id="closePilot" type="button">Finalizar prueba y descargar informe</button></div>');
@@ -210,6 +214,19 @@ render=function(){
  }
  updateTop();
 };
+function displayPasteNotice(detail){
+ const parent=document.getElementById("pilotTop");if(!parent)return;
+ let banner=document.getElementById("mvmExamPasteWarning");
+ if(!banner){
+  banner=document.createElement("div");banner.id="mvmExamPasteWarning";
+  banner.setAttribute("role","alert");
+  banner.style.cssText="background:#fff1df;border:2px solid #b94821;border-radius:10px;padding:12px 15px;margin:12px 0;color:#72301c";
+  banner.innerHTML='<strong>ALERTA IMPORTANTE · Se registró un pegado en una respuesta</strong><p style="margin:5px 0">Recuerda: las respuestas deben ser elaboradas con tus propios conocimientos, sin herramientas de IA ni fuentes externas. Pegar es posible, pero queda registrado y será revisado; no reduce automáticamente la nota.</p><button type="button" class="btn secondary" id="dismissPasteNotice" style="padding:6px 10px">Entendido</button>';
+  parent.insertAdjacentElement("afterend",banner);
+  banner.querySelector("#dismissPasteNotice").onclick=()=>banner.remove();
+ }
+ banner.dataset.source=detail.source||"evaluation";
+}
 const originalGo=go;
 go=function(i){
  if(current.finishedAt&&Number(i)!==8){alert("Este intento ya fue finalizado. Usa «Crear siguiente candidato simulado» para hacer otra prueba.");return;}
@@ -218,6 +235,10 @@ go=function(i){
  originalGo(i);save();
 };
 function start(){
+ if(!current.integrityAcknowledgedAt&&!document.getElementById("integrityAgreement")?.checked){
+  alert("Para comenzar debes leer y aceptar las reglas de conocimientos propios y ausencia de asistencia externa.");return;
+ }
+ if(!current.integrityAcknowledgedAt)current.integrityAcknowledgedAt=now();
  if(INVITE_CODE&&!current.monitoring.consentAt&&!document.getElementById("consentMonitor")?.checked){
   alert("Antes de empezar, revisa y acepta el aviso de registro de interacciones.");return;
  }
@@ -324,6 +345,10 @@ document.addEventListener("change",e=>{if(e.target?.name==="knowAnswer"){knowled
 window.addEventListener("message",event=>{
  if(event.origin!==location.origin||!event.data||!current.startedAt||current.finishedAt)return;
  const msg=event.data;
+ if(msg.type==="MVM_PASTE_NOTICE"&&msg.version===21){
+  if(current.monitoring.consentAt)displayPasteNotice(msg);
+  return;
+ }
  if(msg.type==="MVM_MONITOR_UPDATE"&&msg.version===1){
   if(!current.monitoring.consentAt)return;
   const source=String(msg.source||""),sid=String(msg.sessionId||"");
