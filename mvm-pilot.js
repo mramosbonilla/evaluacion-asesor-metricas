@@ -2,7 +2,9 @@
    Los informes se exportan explícitamente por el evaluador. */
 (function(){
 "use strict";
-const ACTIVE="mvm-pilot-active-v16",ARCHIVE="mvm-pilot-archive-v16";
+const INVITE_CODE=(()=>{const code=(new URLSearchParams(location.search).get("tester")||"").trim().toUpperCase();return /^P0[1-4]$/.test(code)?code:"";})();
+const ACTIVE=INVITE_CODE?"mvm-pilot-active-v18-"+INVITE_CODE:"mvm-pilot-active-v16";
+const ARCHIVE=INVITE_CODE?"mvm-pilot-archive-v18-"+INVITE_CODE:"mvm-pilot-archive-v16";
 const now=()=>new Date().toISOString();
 const lookup=key=>{try{return JSON.parse(localStorage.getItem(key)||"null");}catch(e){return null;}};
 let storageWorks=true;
@@ -10,13 +12,15 @@ const store=(key,value)=>{try{localStorage.setItem(key,JSON.stringify(value));re
 function fresh(){
  return {schema:"MVM_PILOT_16",attemptId:"MVM-"+new Date().toISOString().slice(0,10).replace(/-/g,"")+"-"+Math.random().toString(36).slice(2,8).toUpperCase(),
  createdAt:now(),startedAt:null,finishedAt:null,finishReason:null,
- name:"",email:"",stage:0,knowledgeIndex:0,caseIndex:0,
+ name:"",email:"",inviteCode:INVITE_CODE,feedback:{device:"",clarity:"",navigation:"",technicalIssues:"",suggestions:""},stage:0,knowledgeIndex:0,caseIndex:0,
  objective:Array(15).fill(-1),openCases:["","",""],excel:null,pivot:null,sql:null,python:null};
 }
 let archive=lookup(ARCHIVE);if(!Array.isArray(archive))archive=[];
 let current=lookup(ACTIVE);if(!current||current.schema!=="MVM_PILOT_16")current=fresh();
 if(!Array.isArray(current.objective)||current.objective.length!==15)current.objective=Array(15).fill(-1);
 if(!Array.isArray(current.openCases)||current.openCases.length!==3)current.openCases=["","",""];
+if(!current.feedback)current.feedback={device:"",clarity:"",navigation:"",technicalIssues:"",suggestions:""};
+if(INVITE_CODE)current.inviteCode=INVITE_CODE;
 function restore(){
  for(let i=0;i<15;i++)knowledgeAnswers[i]=Number.isInteger(current.objective[i])?current.objective[i]:-1;
  for(let i=0;i<3;i++)caseAnswers[i]=String(current.openCases[i]||"");
@@ -34,6 +38,7 @@ function collect(){
  candidate:{name:current.name.trim()||"Sin nombre",email:current.email.trim()||""},
  createdAt:current.createdAt,startedAt:current.startedAt,finishedAt:current.finishedAt,
  finishReason:current.finishReason||"en curso",timeLimitSeconds:4500,
+ pilot:{invitationCode:current.inviteCode||INVITE_CODE||null,feedback:{...current.feedback},mode:INVITE_CODE?"PRUEBA_DE_USABILIDAD":"PILOTO_GENERAL"},
  elapsedSeconds:current.finishedAt&&current.startedAt?Math.max(0,Math.round((Date.parse(current.finishedAt)-Date.parse(current.startedAt))/1000)):elapsed,
  overtime:elapsed>4500,
  progress:{stage:at,objectiveAnswered:knowledgeAnswers.filter(x=>x>=0).length,casesAnswered:caseAnswers.filter(x=>x.trim()).length},
@@ -54,7 +59,7 @@ render=function(){
  originalRender();
  if(at===0){
   const area=document.getElementById("body");
-  area.insertAdjacentHTML("beforeend",'<div class="question"><h3>Prueba de selección simulada</h3><p>Usa un nombre distinto en cada intento (por ejemplo, «Candidato 1» y «Candidato 2»). Se conservarán temporalmente los avances en este navegador; al finalizar deberás descargar y compartir el archivo JSON para recibir la calificación, observaciones y ranking. No uses información confidencial.</p><button class="btn" id="beginPilot" type="button">'+(current.startedAt?"Continuar prueba iniciada":"Comenzar prueba de 75 minutos")+'</button></div>');
+  area.insertAdjacentHTML("beforeend",'<div class="question"><h3>'+(INVITE_CODE?"Prueba de experiencia · Invitación "+INVITE_CODE:"Prueba de selección simulada")+'</h3><p>'+(INVITE_CODE?"Has recibido una invitación para probar la evaluación de Asesor de Métricas de MVM. La prueba dura hasta 75 minutos, seguida de un breve cuestionario de comentarios. Tus respuestas solo se guardan en este dispositivo hasta que <strong>descargues y compartas tu archivo</strong> con la persona que te invitó. No verás tu nota.":"Puedes realizar un intento de práctica. El resultado se guarda temporalmente en este navegador y se descarga como archivo JSON; no se envía automáticamente.")+'</p><p><strong>Importante:</strong> utiliza un navegador actualizado y evita cerrar o recargar una práctica antes de pulsar Guardar o Terminar. Los comentarios no afectan tu nota.</p><button class="btn" id="beginPilot" type="button">'+(current.startedAt?"Continuar prueba iniciada":"Comenzar prueba de 75 minutos")+'</button></div>');
   document.getElementById("beginPilot").onclick=()=>start();
  }
  if(at===1){
