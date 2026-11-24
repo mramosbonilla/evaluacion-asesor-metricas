@@ -24,7 +24,7 @@ table{border-collapse:collapse;width:100%;font-size:14px}th,td{border:1px solid 
 <h2>Tu desafío</h2><div class="note"><strong>REGLA DE INTEGRIDAD:</strong> resuelve personalmente el análisis sin utilizar IA ni fuentes externas para obtener o transcribir respuestas. Si pegas texto, recibirás una advertencia y el evento quedará registrado para revisión.</div>
 <p><strong>MVM produce, distribuye y vende libros.</strong> Para analizar las ventas de sus títulos editoriales, dispone del archivo <code>ventas_mvm.csv</code>. Usando <strong>pandas</strong>, crea una tabla agrupada por <code>categoria</code> que muestre el total de unidades y el importe total. Ordena las categorías de mayor a menor importe.</p>
 <div class="note"><strong>Pista técnica:</strong> el importe de cada registro se calcula como <code>unidades * precio_unitario</code>. Puedes utilizar <code>groupby</code>, <code>agg</code>, <code>sort_values</code> y <code>print</code> para mostrar el resultado. No se evalúa automáticamente en esta demostración.</div>
-<div class="row"><a href="./vista-previa.html?etapa=6&amp;v=16">Volver a la etapa Python</a><span class="muted">·</span><span class="muted">Tras terminar Python continuarás a los tres casos abiertos</span><span class="muted">·</span><a href="./excel-pivot.html">Tablas dinámicas</a></div>
+<div class="row"><a href="./vista-previa.html?etapa=6&amp;v=21">Volver a la etapa Python</a><span class="muted">·</span><span class="muted">Tras terminar Python continuarás a los tres casos abiertos</span><span class="muted">·</span><a href="./excel-pivot.html">Tablas dinámicas</a></div>
 <p class="muted small">La primera carga de Python y pandas descarga archivos grandes y requiere Internet. Al terminar, el código y la salida se conservarán en el informe local del piloto, sin enviarlos a un servidor de recepción.</p>
 </article>
 <article><h2>Estructura de datos</h2><p>CSV de ejemplo de MVM disponible en el sistema de archivos temporal de Python como <code>ventas_mvm.csv</code> (12 registros).</p>
@@ -95,7 +95,7 @@ $("finishPython").onclick=()=>{
  const current=$("code").value;
  const report={type:"MVM_PYTHON_COMPLETE",version:16,completedAt:new Date().toISOString(),code:current,lastExecution:lastExecution&&lastExecution.code===current?lastExecution:null,executions:runCount,engineReady:!!py};
  if(new URLSearchParams(location.search).get("embed")==="1"&&window.parent!==window)window.parent.postMessage(report,location.origin);
- else{try{localStorage.setItem("mvm-pilot-python-pending",JSON.stringify(report));}catch(e){}location.href="./vista-previa.html?etapa=7&v=16";}
+ else{try{localStorage.setItem("mvm-pilot-python-pending",JSON.stringify(report));}catch(e){}location.href="./vista-previa.html?etapa=7&v=21";}
 };
 
 $("code").addEventListener("keydown",e=>{
