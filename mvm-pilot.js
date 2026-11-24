@@ -1,15 +1,19 @@
 /* MVM · Evaluación técnica. Estado local con receptor privado opcional y acuse verificable. */
 (function(){
 "use strict";
-const INVITE_CODE=(()=>{const code=(new URLSearchParams(location.search).get("tester")||"").trim().toUpperCase();return /^P0[1-4]$/.test(code)?code:"";})();
-const ACTIVE=INVITE_CODE?"mvm-assessment-active-v23-"+INVITE_CODE:"mvm-pilot-active-v16";
-const ARCHIVE=INVITE_CODE?"mvm-assessment-archive-v23-"+INVITE_CODE:"mvm-pilot-archive-v16";
+const INVITE_CODE=(()=>{const code=(new URLSearchParams(location.search).get("tester")||"").trim().toUpperCase();return /^P(?:0[1-9]|1[0-5])$/.test(code)?code:"";})();
+const ACTIVE=INVITE_CODE?"mvm-assessment-active-v25-"+INVITE_CODE:"mvm-pilot-active-v16";
+const ARCHIVE=INVITE_CODE?"mvm-assessment-archive-v25-"+INVITE_CODE:"mvm-pilot-archive-v16";
 const now=()=>new Date().toISOString();
+function createAttemptSuffix(){
+ if(window.crypto?.getRandomValues){const a=new Uint8Array(10);window.crypto.getRandomValues(a);return Array.from(a,v=>v.toString(16).padStart(2,"0")).join("").toUpperCase();}
+ return Math.random().toString(36).slice(2,13).toUpperCase();
+}
 const lookup=key=>{try{return JSON.parse(localStorage.getItem(key)||"null");}catch(e){return null;}};
 let storageWorks=true;
 const store=(key,value)=>{try{localStorage.setItem(key,JSON.stringify(value));return true;}catch(e){storageWorks=false;return false;}};
 function fresh(){
- return {schema:"MVM_PILOT_16",attemptId:"MVM-"+new Date().toISOString().slice(0,10).replace(/-/g,"")+"-"+Math.random().toString(36).slice(2,8).toUpperCase(),
+ return {schema:"MVM_PILOT_16",attemptId:"MVM-"+new Date().toISOString().slice(0,10).replace(/-/g,"")+"-"+createAttemptSuffix(),
  createdAt:now(),startedAt:null,finishedAt:null,finishReason:null,
  name:"",email:"",inviteCode:INVITE_CODE,integrityAcknowledgedAt:null,feedback:{device:"",clarity:"",navigation:"",technicalIssues:"",suggestions:""},stage:0,knowledgeIndex:0,caseIndex:0,
  objective:Array(15).fill(-1),openCases:["","",""],excel:null,pivot:null,sql:null,python:null};
@@ -202,23 +206,39 @@ render=function(){
    const auto=!!window.MVMDelivery?.available?.();
    area.insertAdjacentHTML("beforeend",auto?
     '<div class="question"><h3>Entrega de la evaluación</h3><p>Cuando hayas terminado tus comentarios, pulsa el botón para enviar tus respuestas al responsable del proceso.</p><button class="btn" id="submitEvaluation" type="button">Guardar y enviar evaluación</button><p id="deliveryStatus" role="status" aria-live="polite"></p><div id="deliveryBackup" style="display:none"><button class="btn secondary" id="exportReport" type="button">Guardar copia de respaldo</button></div></div>':
-    '<div class="question"><h3>Entrega de la evaluación</h3><p>Para completar la entrega, guarda tu evaluación y envíala al responsable del proceso mediante el canal que te indicó.</p><div class="actions"><button class="btn" id="exportReport" type="button">Guardar evaluación</button><button class="btn secondary" id="shareReport" type="button">Compartir evaluación</button></div><p class="muted">Conserva el archivo hasta recibir confirmación del responsable.</p></div>');
+    (window.MVMDelivery?.secureRequired?.()?
+     '<div class="question"><h3>Entrega de la evaluación</h3><p>La recepción segura no está disponible en este momento. Contacta al responsable y conserva esta página abierta.</p><button class="btn secondary" id="exportReport" type="button">Guardar copia de respaldo</button></div>':
+     '<div class="question"><h3>Entrega de la evaluación</h3><p>Guarda tu evaluación y envíala al responsable del proceso.</p><div class="actions"><button class="btn" id="exportReport" type="button">Guardar evaluación</button><button class="btn secondary" id="shareReport" type="button">Compartir evaluación</button></div></div>'));
    const sendBtn=document.getElementById("submitEvaluation");
+   // A frozen snapshot guarantees that retries after a timeout send identical bytes.
+   if(current.submissionSnapshot){
+    const inputs=area.querySelectorAll("#feedbackSection input,#feedbackSection textarea,#feedbackSection select");
+    inputs.forEach(field=>field.disabled=true);
+   }
    if(sendBtn)sendBtn.onclick=async()=>{
     if(current.delivery?.state==="confirmed"){return;}
     sendBtn.disabled=true;
     const st=document.getElementById("deliveryStatus");
     st.textContent="Enviando evaluación…";
+    if(!current.submissionSnapshot){
+     current.submissionSnapshot=collect();
+     if(!store(ACTIVE,current)){
+      st.textContent="No se pudo guardar la copia de seguridad en este dispositivo. No cierres la pantalla y contacta al responsable.";
+      sendBtn.disabled=false;return;
+     }
+     const inputs=area.querySelectorAll("#feedbackSection input,#feedbackSection textarea,#feedbackSection select");
+     inputs.forEach(field=>field.disabled=true);
+    }
     try{
-      const receipt=await window.MVMDelivery.send(collect());
+      const receipt=await window.MVMDelivery.send(current.submissionSnapshot);
       current.delivery={state:"confirmed",attemptId:receipt.attemptId,receivedAt:receipt.receivedAt||now()};
       store(ACTIVE,current);
       const found=archive.findIndex(x=>x.attemptId===current.attemptId);
-      if(found!==-1){archive[found]=collect();store(ARCHIVE,archive);}
+      if(found!==-1){archive[found]=current.submissionSnapshot;store(ARCHIVE,archive);}
       st.textContent="Entrega recibida y confirmada. Puedes cerrar esta ventana.";
       sendBtn.textContent="Evaluación recibida ✓";
     }catch(error){
-      st.textContent="No pudimos confirmar la recepción. Intenta de nuevo o guarda una copia y consulta con el responsable.";
+      st.textContent="No pudimos confirmar la recepción. Puedes reintentar sin perder los datos guardados.";
       const backup=document.getElementById("deliveryBackup");if(backup)backup.style.display="block";
       sendBtn.disabled=false;
     }
@@ -243,6 +263,10 @@ go=function(i){
  originalGo(i);save();
 };
 function start(){
+ if(window.MVMDelivery?.secureRequired?.()&&!window.MVMDelivery?.available?.()){
+  alert("La recepción segura de esta evaluación aún no está habilitada para este enlace. Contacta al responsable antes de comenzar.");
+  return;
+ }
  if(!current.integrityAcknowledgedAt&&!document.getElementById("integrityAgreement")?.checked){
   alert("Para comenzar debes leer y aceptar las reglas de conocimientos propios y ausencia de asistencia externa.");return;
  }
