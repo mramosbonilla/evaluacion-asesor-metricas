@@ -130,7 +130,7 @@ function doPost(e){
     try{
       // SECURITY: the token cannot cause a fallback to writing to the public app repo.
       mvmGetRepo_(token,repo);
-      const year=String(new Date(finished).getUTCFullYear());
+      const year=String(new Date(Date.parse(obj.finishedAt)).getUTCFullYear());
       const path="entregas/"+year+"/"+code+".json";
       const existing=mvmFile_(token,repo,"GET",path);
       if(existing.status===200){
