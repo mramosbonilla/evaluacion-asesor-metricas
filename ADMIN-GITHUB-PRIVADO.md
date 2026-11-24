@@ -1,69 +1,71 @@
-# MVM · Entrega automática de evaluaciones a GitHub privado
+# MVM — Activación segura de 15 evaluaciones (V25)
 
-## Qué hará el candidato
+**Estado actual: BLOQUEADO PARA ENTREGAS REALES.** El código fue reforzado y probado con simulaciones, pero las evaluaciones NO pueden iniciarse hasta configurar un receptor y verificar una entrega auténtica. No se deben distribuir las invitaciones antiguas \`?tester=P01&v=24\`: carecen de una clave privada.
 
-Al cerrar y comentar la prueba, pulsará **Guardar y enviar evaluación**. Si el receptor confirma el registro, la pantalla mostrará **Evaluación recibida ✓**. No tendrá que descargar un archivo ni acceder a GitHub.
+## Resultado esperado
 
-## Qué ocurre detrás de la pantalla
+1. Cada candidato recibe **SU enlace privado**, con código P01–P15 y clave larga no adivinable.
+2. Acepta el compromiso de integridad, desarrolla la evaluación durante 75 minutos y puede añadir comentarios.
+3. Pulsa **Guardar y enviar evaluación**. La app conserva una copia local inmutable y reintenta el mismo contenido si hay fallos.
+4. Un servicio Google Apps Script valida la invitación, el esquema y la privacidad del destino. Guarda un JSON en un repositorio **GitHub PRIVADO**.
+5. El candidato solo ve **Evaluación recibida** tras respuesta positiva del receptor. No descarga archivos ni necesita cuenta GitHub.
+6. Desde ChatGPT puedes pedirme leer las nuevas entregas con la conexión GitHub (autoriza también el nuevo repo privado) y generar informes Word y ranking Excel.
 
-1. La aplicación está publicada en GitHub Pages, que es un sitio estático y no puede escribir en GitHub por sí mismo.
-2. Un receptor HTTPS gratuito y ligero en Google Apps Script recibe el archivo de entrega.
-3. El receptor usa un token limitado, guardado **solo en las propiedades privadas del script**, para escribir `entregas/AAAA/MVM-XXXXXXXX-XXXXXX.json` en un **repositorio GitHub privado** del propietario.
-4. La aplicación confirma el envío únicamente cuando el receptor responde. En caso de error no afirma que lo haya recibido.
+**La recepción no envía mensajes automáticamente a ChatGPT.** Los informes se generan aquí cuando los solicitas.
 
-No hay que habilitar correos ni pedir al candidato que descargue resultados. **ChatGPT no recibe eventos automáticamente**, pero puede buscar los nuevos archivos en el repositorio mediante la conexión de GitHub cuando el propietario lo solicite, y generar los informes Word y el consolidado Excel. El nuevo repositorio privado debe estar autorizado para el conector de GitHub en ChatGPT.
+## Parte A — GitHub privado
 
-## Configuración única necesaria
+1. En GitHub pulsa **+ → New repository**.
+2. Nombre sugerido: \`MVM-Resultados-Privados\`.
+3. Selecciona **Private** y créalo. No uses \`evaluacion-asesor-metricas\`, que es público.
+4. GitHub → Settings → Developer settings → Personal access tokens → Fine-grained tokens. Genera una credencial **solo para ese repositorio privado**, con permiso **Contents: Read and write**, y vencimiento controlado. No marques "All repositories".
+5. **No introduzcas esta credencial en ChatGPT ni en archivos del repositorio público.** Cópiala solamente al panel privado de propiedades de Google Apps Script.
 
-### 1. Crear el repositorio de resultados
+## Parte B — Receptor Google Apps Script
 
-En tu GitHub crea un nuevo repositorio **Private**, por ejemplo `MVM-Resultados-Privados`. **No utilices el repositorio público** `evaluacion-asesor-metricas` para respuestas ni alertas de participantes.
+1. Abre [Google Apps Script](https://script.google.com/) y crea un proyecto nuevo bajo tu cuenta.
+2. Copia el contenido de [receptor-mvm-a-github.gs](./receptor-mvm-a-github.gs) al editor y guarda.
+3. En **Configuración del proyecto → Propiedades de secuencia de comandos** agrega:
+   - \`MVM_GITHUB_TOKEN\` = token GitHub restringido al repositorio privado.
+   - \`MVM_TARGET_REPO\` = \`mramosbonilla/MVM-Resultados-Privados\` (o tu nombre elegido).
+4. Ejecuta desde el editor la función \`mvmProvisionInvitations\` **una sola vez**. Autoriza los permisos solicitados. La función guarda solo hashes SHA-256 y presenta en el **Registro de ejecución privado** las 15 invitaciones, P01 a P15, con claves de 64 caracteres.
+5. **Copia esos enlaces en un lugar privado y distribuye uno a cada candidato.** No los subas a GitHub, no los compartas públicamente ni los pegues en chats grupales. Si pierdes las claves originales, no se recuperan de los hashes: hay que rotar las invitaciones y crear enlaces nuevos.
+6. En Apps Script, **Implementar → Nueva implementación → Aplicación web**. Configura ejecutar como **Yo** y acceso **Cualquier persona** (necesario para participantes sin cuenta Google). Confirma autorizaciones. Copia la URL HTTPS terminada en \`/exec\`.
+7. En el repositorio público, edita [mvm-config.js](./mvm-config.js) y coloca **solo la URL HTTPS del receptor** en \`endpoint\`. Deja \`requireSecureDelivery:true\`. El URL del receptor **no es una clave secreta**, pero el token de GitHub y los hashes de invitaciones sí lo son.
 
-En GitHub: `+` → `New repository` → nombre → **Private** → `Create repository`.
+## Parte C — Prueba obligatoria antes de enviar las invitaciones
 
-### 2. Crear un token de alcance limitado
+1. Utiliza una invitación de prueba (P01). **Advertencia:** cuando se entregue, esa invitación quedará ocupada; para reutilizarla habrá que rotar las invitaciones o generar una serie distinta para los candidatos reales.
+2. Completa el examen, agrega comentarios y pulsa **Guardar y enviar evaluación**.
+3. Debe aparecer **Evaluación recibida ✓**.
+4. En el repositorio privado debe existir \`entregas/2026/P01.json\` con \`knowledge\`, \`openCases\`, \`practical\` y \`monitoring\`. No copies aquí credenciales ni enlaces secretos.
+5. Repite el envío de la **misma entrega** para comprobar que no duplica ni sobrescribe. Una entrega diferente con la misma invitación debe rechazarse.
+6. Confirma que el repositorio de resultados también está autorizado en la **conexión GitHub de ChatGPT**; si el conector no puede verlo, ChatGPT no podrá leer el JSON automáticamente.
+7. Pídeme: **«Busca las nuevas entregas MVM en el repositorio privado, genera informes individuales Word, diagnóstico de integridad, ranking y Excel acumulado»**.
 
-En GitHub: `Settings` → `Developer settings` → `Personal access tokens` → `Fine-grained tokens` → `Generate new token`. Selecciona solo el repositorio privado de resultados y otorga **Contents: Read and write**. Usa un vencimiento breve y luego renuévalo cuando corresponda.
+No actives un proceso oficial hasta completar una prueba real en PC y otra en un teléfono, verificar los acuses, y comprobar que los informes se generan con los datos completos.
 
-**No pegues el token en este chat ni en archivos del repositorio público.** Guárdalo únicamente en las propiedades privadas del Google Apps Script en el siguiente paso.
+## Controles implementados
 
-### 3. Desplegar el receptor
+- **Invitación secreta:** 15 tokens aleatorios por candidato; solo se almacena SHA-256 de cada token en propiedades privadas del receptor.
+- **Rechazo por defecto:** sin clave válida, configuración o receptor activo, no se inicia ni acepta una evaluación real.
+- **Acceso privado:** el receptor comprueba que GitHub confirme \`private:true\` antes de escribir.
+- **Sin secretos en navegador:** la credencial de GitHub solo vive en propiedades privadas del script.
+- **Un único resultado por invitación:** ruta fija \`entregas/AAAA/Pxx.json\`, no se sobrescribe, y el reintento idéntico se confirma sin nueva escritura.
+- **Respaldo local y reintento:** el cliente conserva exactamente el JSON que intentó enviar.
+- **Acuse verificable:** se valida origen Google, versión, identificador y nonce criptográfico; no se muestra «recibido» solo por pulsar el botón.
+- **No se guardan datos personales en el repositorio público.**
 
-En Google Apps Script crea un proyecto nuevo y pega el contenido del archivo [receptor-mvm-a-github.gs](./receptor-mvm-a-github.gs).
+## Límites de seguridad que NO debemos ocultar
 
-En `Configuración del proyecto` → `Propiedades de secuencia de comandos`, crea:
-- `MVM_GITHUB_TOKEN` = el token privado de GitHub
-- `MVM_TARGET_REPO` = `mramosbonilla/MVM-Resultados-Privados` (ajusta si usas otro nombre)
+1. **El navegador no es inviolable.** El candidato podría inspeccionar la página, alterar el JSON o simular algunos eventos. Las alertas (copiar/pegar, pestañas, velocidad de escritura) requieren revisión contextual y no demuestran fraude.
+2. Las preguntas y parte de la lógica práctica están en archivos públicos de GitHub Pages. **No se puede garantizar secreto absoluto de respuestas ni supervisión antitrampas** sin cambiar la arquitectura a un backend que entregue/controla preguntas y califique en el servidor.
+3. Un enlace secreto puede ser compartido por su destinatario. Con esta solución no se verifica la identidad real de la persona: solo la posesión de su enlace.
+4. El receptor Apps Script sigue siendo accesible por Internet, aunque rechaza entregas sin clave. Sus cuotas y su resistencia al abuso no equivalen a un servicio empresarial.
+5. El candidato puede perder su respaldo local si borra datos del navegador o cambia de dispositivo antes de que se confirme el envío. Hay botón de copia de emergencia ante error.
+6. No almacenar archivos personales más tiempo del necesario. Define una fecha de eliminación y quién puede acceder al repositorio privado.
+7. Las credenciales GitHub vencen: establece una fecha de renovación y prueba la recepción de nuevo. Un token vencido hace que la entrega falle sin confirmación.
 
-En Apps Script: `Implementar` → `Nueva implementación` → `Aplicación web`, ejecuta como **Yo** y permite acceso a **Cualquier persona**, para que los participantes no necesiten una cuenta Google. Autoriza los permisos necesarios.
+## Estado
 
-El receptor público es una excepción de seguridad para este **piloto supervisado**. Antes de utilizarlo para contratación real, añade autenticación de participantes, prevención de spam, validación de integridad del envío y medidas de privacidad acordes con tu organización.
-
-### 4. Conectar la evaluación al receptor
-
-Copia la URL de la aplicación web de Apps Script (acaba en `/exec`). En el archivo público [mvm-config.js](./mvm-config.js), cambia únicamente `endpoint: ""` por `endpoint: "https://script.google.com/macros/s/.../exec"`.
-
-**Importante:** la URL del receptor se hace pública en el navegador. No es una clave. El token de GitHub debe permanecer exclusivamente en las propiedades del script.
-
-### 5. Probar antes de enviar cuatro invitaciones
-
-Completa una prueba ficticia en el enlace V24, añade los comentarios y pulsa **Guardar y enviar evaluación**.
-
-Comprueba:
-1. Pantalla de confirmación **Evaluación recibida**.
-2. Archivo JSON nuevo en el repositorio privado, con el ID del intento y respuestas, casos, ejercicios y `monitoring.alerts`.
-3. El repositorio privado está disponible en la conexión GitHub de ChatGPT.
-
-Si algo falla, no envíes invitaciones reales hasta corregirlo. La pantalla nunca debe mostrar una recepción no confirmada.
-
-## Generar los informes
-
-Cuando haya entregas, escribe en esta conversación:
-
-> Busca las nuevas evaluaciones MVM del repositorio GitHub privado, califícalas con la rúbrica de 100 puntos, genera un informe Word individual por candidato, un Word con el ranking detallado, un resumen ejecutivo Word y el Excel acumulativo. Incluye las alertas de integridad como observaciones separadas de las calificaciones y distingue los intentos simulados.
-
-Este proceso se hará aquí con la conexión de GitHub. Para que ocurra sin que tengas que pedirlo, habrá que configurar expresamente una tarea programada compatible; la recepción en GitHub por sí sola no inicia mensajes en ChatGPT.
-
-## Límites del piloto
-
-El JSON del navegador puede ser manipulado por alguien con conocimientos técnicos; los indicadores de integridad no constituyen pruebas de fraude y no modifican automáticamente la nota. El receptor anónimo puede recibir envíos no deseados y las cuotas gratuitas de Apps Script o las API pueden cambiar. Usa este procedimiento para los cuatro evaluadores piloto, no como infraestructura final de contratación sin endurecer su seguridad.
+El código V25 **ha pasado pruebas automatizadas simuladas**, pero **no está desplegado ni validado con un servicio real**, ya que la configuración del repositorio privado, token y Apps Script requiere la acción del propietario. No existe todavía garantía de recepción operativa para candidatos reales.
