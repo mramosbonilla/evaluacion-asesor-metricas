@@ -15,7 +15,12 @@ const empty=()=>({
  focusLossCount:0,focusLossMilliseconds:0,hiddenSince:null,blurSince:null,
  fields:{},events:[]
 });
-let state=empty(),enabled=!PARENT&&EMBEDDED,finished=false,lastPaste=0,lastReport=0;
+const parentConsent=()=>{
+ if(PARENT||!EMBEDDED||window.parent===window)return false;
+ try{return window.parent.__MVMMonitoringConsentGranted===true;}
+ catch(e){return false;}
+};
+let state=empty(),enabled=!PARENT&&EMBEDDED&&parentConsent(),finished=false,lastPaste=0,lastReport=0;
 const previous=new WeakMap(),beforeInput=new WeakMap();
 function time(){return Date.now();}
 function newField(){return{typedCharacters:0,deletedCharacters:0,backspacePresses:0,deletePresses:0,inputEvents:0,activeTypingMs:0,activeGaps:0,longestUninterruptedCharacters:0,currentUninterruptedCharacters:0,correctionCycles:0,typingAfterDeletion:false,firstAt:null,lastAt:null,medianGapSamplesMs:[]};}
@@ -207,6 +212,6 @@ if(!PARENT&&EMBEDDED){
  },true);
  window.addEventListener("pagehide",()=>sendToParent());
  document.addEventListener("visibilitychange",()=>{if(document.hidden)sendToParent();});
- start();
+ if(parentConsent())start();
 }
 })();
