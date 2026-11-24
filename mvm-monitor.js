@@ -11,7 +11,7 @@ const EMBEDDED=new URLSearchParams(location.search).get("embed")==="1";
 const sessionId="S"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,8);
 const empty=()=>({
  schema:"MVM_MONITOR_1",source:SOURCE,sessionId,firstAt:null,lastAt:null,
- pasteAttempts:0,dropAttempts:0,visibilityHiddenCount:0,hiddenMilliseconds:0,
+ pasteAttempts:0,dropAttempts:0,pasteAllowed:true,visibilityHiddenCount:0,hiddenMilliseconds:0,
  focusLossCount:0,focusLossMilliseconds:0,hiddenSince:null,blurSince:null,
  fields:{},events:[]
 });
@@ -36,6 +36,7 @@ function fieldName(el){
  }
  if(SOURCE==="sql"&&el.matches("#editor"))return "consulta_sql";
  if(SOURCE==="python"&&el.matches("#code"))return "codigo_python";
+ if(SOURCE==="pivot"&&el.matches(".pivot-answer"))return "pivot_"+String(el.dataset?.answer||"respuesta");
  return null;
 }
 function accessibleTarget(el){
@@ -72,17 +73,39 @@ function sendToParent(){
  lastReport=time();
  try{window.parent.postMessage({type:"MVM_MONITOR_UPDATE",version:1,source:SOURCE,sessionId,snapshot:snapshot()},location.origin);}catch(e){}
 }
+function showPasteWarning(field){
+ if(!document.body)return;
+ let alert=document.getElementById("mvmPasteWarning");
+ if(!alert){
+  alert=document.createElement("div");
+  alert.id="mvmPasteWarning";
+  alert.setAttribute("role","alert");
+  alert.style.cssText="position:fixed;top:12px;right:12px;max-width:min(560px,calc(100vw - 24px));background:#fff3e8;color:#752713;border:2px solid #bc4b22;border-radius:10px;box-shadow:0 8px 28px #0003;z-index:99999;padding:14px 17px;font:14px/1.45 system-ui,sans-serif";
+  const title=document.createElement("strong");title.textContent="ALERTA IMPORTANTE · Regla de integridad";
+  const text=document.createElement("p");
+  text.textContent="Se ha registrado un intento de pegar en un área de respuesta. Esta evaluación mide tus conocimientos y prohíbe obtener o transcribir soluciones de IA o fuentes externas. El pegado no fue bloqueado, pero esta acción quedará reflejada en el informe para revisión.";
+  text.style.margin="7px 0";
+  const button=document.createElement("button");
+  button.type="button";button.textContent="Entendido";
+  button.style.cssText="padding:6px 13px;border:1px solid #bc4b22;border-radius:6px;background:#fff;color:#752713;cursor:pointer";
+  button.onclick=()=>alert.remove();
+  alert.append(title,text,button);document.body.append(alert);
+ }
+ alert.setAttribute("data-field",field);
+}
 function pasteAttempt(type,field,event){
  const now=time();
- if(now-lastPaste>250){
-  state[type==="drop"?"dropAttempts":"pasteAttempts"]++;
-  mark(type==="drop"?"drop_blocked":"paste_blocked",{field});
-  lastPaste=now;
+ // Ctrl+V, paste and beforeinput commonly describe ONE action. Deduplicate them.
+ if(now-lastPaste<=350)return;
+ lastPaste=now;
+ if(type==="paste")state.pasteAttempts++;
+ else state.dropAttempts++;
+ mark(type==="paste"?"paste_detected":"drop_detected",{field,allowed:true});
+ showPasteWarning(field);
+ if(!PARENT&&EMBEDDED&&window.parent!==window){
+  try{window.parent.postMessage({type:"MVM_PASTE_NOTICE",version:21,field,source:SOURCE,at:new Date().toISOString()},location.origin);}catch(e){}
  }
- if(event?.preventDefault)event.preventDefault();
- if(event?.stopPropagation)event.stopPropagation();
- if(SOURCE==="excel"){const status=document.getElementById("status");if(status)status.textContent="Pegado bloqueado: escribe la fórmula o respuesta directamente.";}
- if(SOURCE==="sql"||SOURCE==="python"){const status=document.getElementById("state");if(status)status.textContent="Pegado bloqueado en la respuesta. Puedes escribir y editar tu solución.";}
+ // Deliberately do not call preventDefault(): the browser may insert the pasted text.
 }
 document.addEventListener("focusin",e=>{
  const field=accessibleTarget(e.target)?.field;
