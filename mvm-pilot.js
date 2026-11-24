@@ -55,10 +55,13 @@ function monitoringSummary(){
  for(const item of [parent,...sources]){
   for(const [field,f] of Object.entries(item.fields||{})){
    const origin=item.source||"evaluation",key=origin+"."+field;
-   const total=fields[key]||{source:origin,field,typedCharacters:0,deletedCharacters:0,backspacePresses:0,deletePresses:0,inputEvents:0,activeTypingMs:0,correctionCycles:0,longestUninterruptedCharacters:0};
-   for(const k of ["typedCharacters","deletedCharacters","backspacePresses","deletePresses","inputEvents","activeTypingMs","correctionCycles"])total[k]+=Number(f[k]||0);
-   total.longestUninterruptedCharacters=Math.max(total.longestUninterruptedCharacters,Number(f.longestUninterruptedCharacters||0));
+   const total=fields[key]||{source:origin,field,typedCharacters:0,deletedCharacters:0,backspacePresses:0,deletePresses:0,inputEvents:0,activeTypingMs:0,correctionCycles:0,longestUninterruptedCharacters:0,writingSpanMs:0,pausesOver5Seconds:0,pausesOver10Seconds:0,longestInterInputPauseMs:0,substantialRevisionCount:0,multilineRevisionCount:0,minorDeletionEvents:0,maxDeletionSequenceChars:0};
+   for(const k of ["typedCharacters","deletedCharacters","backspacePresses","deletePresses","inputEvents","activeTypingMs","correctionCycles","writingSpanMs","pausesOver5Seconds","pausesOver10Seconds","substantialRevisionCount","multilineRevisionCount","minorDeletionEvents"])total[k]+=Number(f[k]||0);
+   for(const k of ["longestUninterruptedCharacters","longestInterInputPauseMs","maxDeletionSequenceChars"])
+    total[k]=Math.max(total[k],Number(f[k]||0));
    total.activeCharactersPerSecond=total.activeTypingMs>=1000?Number((total.typedCharacters/(total.activeTypingMs/1000)).toFixed(2)):null;
+   total.sustainedCharactersPerSecond=total.writingSpanMs>=30000?Number((total.typedCharacters/(total.writingSpanMs/1000)).toFixed(2)):null;
+   total.deletionRatio=total.typedCharacters?Number((total.deletedCharacters/total.typedCharacters).toFixed(3)):null;
    fields[key]=total;
   }
  }
@@ -70,13 +73,28 @@ function monitoringSummary(){
  if(blur)alerts.push({code:"FOCUS_LOST",level:"informativo",count:blur,message:"La ventana perdió el foco "+blur+" veces; también puede suceder por funciones normales del navegador."});
  if(blockedPaste||blockedDrop)alerts.push({code:"PASTE_BLOCKED",level:"revisar",count:blockedPaste+blockedDrop,message:"Se bloquearon "+blockedPaste+" pegados y "+blockedDrop+" arrastres de contenido en respuestas."});
  for(const f of Object.values(fields)){
-  if(f.typedCharacters>=160&&f.activeTypingMs>=3000&&f.activeCharactersPerSecond>=8)
-   alerts.push({code:"HIGH_TYPING_RATE",level:"informativo",source:f.source,field:f.field,message:"Ritmo alto de escritura en "+f.field+". No permite inferir consulta externa."});
-  if(f.field.startsWith("caso_")&&f.longestUninterruptedCharacters>=180&&f.deletedCharacters===0)
-   alerts.push({code:"NO_DELETIONS",level:"informativo",source:f.source,field:f.field,message:"Texto extenso sin borrados detectados en "+f.field+". No constituye indicio suficiente de conducta indebida."});
+  const longForm=f.field.startsWith("caso_")||f.field==="consulta_sql"||f.field==="codigo_python";
+  // Calibration rule, not a diagnosis: all indicators are required at once.
+  // Excel formulas often require little revision even when solved independently.
+  const continuousRapid=longForm&&f.typedCharacters>=300&&f.writingSpanMs>=45000&&
+   f.sustainedCharactersPerSecond>=3.5&&f.pausesOver5Seconds<=1&&
+   f.substantialRevisionCount===0&&f.multilineRevisionCount===0&&
+   f.deletionRatio!==null&&f.deletionRatio<=0.05&&
+   f.longestUninterruptedCharacters>=180;
+  if(continuousRapid){
+   alerts.push({
+    code:"FAST_CONTINUOUS_LOW_REVISION",level:"revisar",source:f.source,field:f.field,
+    evidence:{typedCharacters:f.typedCharacters,writingSeconds:Math.round(f.writingSpanMs/1000),
+     sustainedCharactersPerSecond:f.sustainedCharactersPerSecond,pausesOver5Seconds:f.pausesOver5Seconds,
+     deletedCharacters:f.deletedCharacters,deletionRatio:f.deletionRatio,
+     substantialRevisionCount:f.substantialRevisionCount,multilineRevisionCount:f.multilineRevisionCount,
+     longestUninterruptedCharacters:f.longestUninterruptedCharacters},
+    message:"Se observó escritura sostenida rápida, con muy pocas pausas y sin revisiones extensas detectables en "+f.field+". El patrón podría ser compatible con transcripción, pero también con otras formas legítimas de redacción; requiere revisión contextual, no demuestra consulta de otro equipo."
+   });
+  }
  }
  return{enabled:!!data.consentAt,consentAt:data.consentAt||null,
-  policy:"Estas métricas no afectan la calificación ni constituyen prueba de irregularidad; requieren revisión contextual y posibilidad de aclaración.",
+  policy:"Los umbrales de escritura son orientativos y no validados como detector de fraude. Las métricas no afectan la calificación ni constituyen prueba de irregularidad; requieren revisión contextual y posibilidad de aclaración.",
   tabHiddenCount:tabs,hiddenSeconds:Math.round(Number(parent.hiddenMilliseconds||0)/1000),
   windowFocusLossCount:blur,windowUnfocusedSeconds:Math.round(Number(parent.focusLossMilliseconds||0)/1000),
   blockedPasteAttempts:blockedPaste,blockedDropAttempts:blockedDrop,fields,alerts,detail:{parent,tools:data.tools||{}}};
