@@ -225,7 +225,7 @@ function onFinish(){
   return;
  }
  const list=result.tests.map(t=>'<p><strong>'+(t.ok?"✓":"✗")+" "+t.label+'</strong> — Respuesta: '+escapeHTML(t.got)+' · Esperado: '+t.expected+' · '+(t.hasFormula?"Se usó fórmula":"Sin fórmula")+'</p>').join("");
- byId("results").innerHTML='<div class="result"><h2>Práctica de Excel completada</h2><p>Resultado diagnóstico: '+result.score+'/100 (solo piloto).</p><p>Esta pantalla no termina la evaluación general. Regresa a la prueba principal para continuar con tablas dinámicas, SQL y Python.</p><a class="btn" href="./vista-previa.html?etapa=3&amp;v=21">Volver a la etapa de Excel</a> <a class="btn" href="./vista-previa.html?etapa=4&amp;v=21">Continuar a tablas dinámicas</a></div>'+list;
+ byId("results").innerHTML='<div class="result"><h2>Práctica de Excel completada</h2><p>Los resultados serán revisados por el responsable del proceso.</p><p>Esta pantalla no termina la evaluación general. Regresa a la prueba principal para continuar con tablas dinámicas, SQL y Python.</p><a class="btn" href="./vista-previa.html?etapa=3&amp;v=21">Volver a la etapa de Excel</a> <a class="btn" href="./vista-previa.html?etapa=4&amp;v=21">Continuar a tablas dinámicas</a></div>'+list;
  show("done");
 }
 finish=onFinish;
@@ -240,7 +240,7 @@ if(hint){
 }
 const reminder=document.createElement("div");reminder.className="task";reminder.id="formulaRules";reminder.innerHTML="<strong>IMPORTANTE · Prueba individual de conocimientos:</strong> está prohibido utilizar IA u otras fuentes externas para recibir, copiar y pegar, o transcribir respuestas. Incumplir esta regla constituye una falta a la integridad de la evaluación. <strong>Reglas de Excel:</strong> base de 240 pedidos de libros. Las cuatro respuestas finales (<code>J3</code>, <code>J4</code>, <code>J5</code>, <code>J7</code>) deben contener fórmulas que dependan de los datos originales. No se admiten cifras tecleadas ni expresiones de solo constantes. Puedes combinar funciones, usar las columnas H y K como auxiliares y elegir cualquier procedimiento compatible que produzca el resultado correcto. <strong>J7:</strong> diferencia numérica de pedidos completados entre el canal con más y el canal con menos.";
 byId("excel").querySelector(".ribbon").before(reminder);
-const badge=byId("excel").querySelector(".badge");if(badge)badge.textContent="Simulador Excel · v16";
+const badge=byId("excel").querySelector(".badge");if(badge)badge.textContent="Excel · Hoja de evaluación";
 if(new URLSearchParams(location.search).get("embed")==="1"){
  // Mantener la evaluación principal abierta mientras el candidato trabaja.
  byId("candidate").value="Participante de prueba";
