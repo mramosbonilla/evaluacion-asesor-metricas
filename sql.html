@@ -50,6 +50,9 @@ LIMIT 8;</textarea>
 <script>
 (()=>{"use strict";
 const $=id=>document.getElementById(id);
+if(new URLSearchParams(location.search).get("embed")==="1"){
+ for(const link of document.querySelectorAll('main article:first-of-type .row a'))link.hidden=true;
+}
 let SQL=null,db=null,lastExecution=null,runCount=0;
 const starter=$("editor").value;
 function status(message,error=false){$("state").textContent=message;$("state").toggleAttribute("data-error",error);$("state").toggleAttribute("data-ready",!error&&!!db);}
