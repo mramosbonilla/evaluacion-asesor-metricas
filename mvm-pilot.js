@@ -73,10 +73,11 @@ render=function(){
    '<p>SQL: <strong>'+(current.sql?'registrado':'sin entrega')+'</strong> · Python: <strong>'+(current.python?'registrado':'sin entrega')+'</strong></p></div>'+
    '<p><strong>La calificación y el ranking son privados.</strong> Se elaborarán después de que compartas los informes de tus dos pruebas. No se mostrarán las claves en esta página.</p>'+
    (current.finishedAt?
-    '<div class="question"><p>Tu intento está cerrado. Descarga el archivo para que podamos revisar las fórmulas, consultas, código y respuestas abiertas.</p><div class="actions"><button class="btn" id="exportReport" type="button">Descargar resultado de este intento (.json)</button><button class="btn secondary" id="exportAll" type="button">Descargar todos los intentos</button><button class="btn secondary" id="startAnother" type="button">Crear siguiente candidato simulado</button></div></div>':
+    '<div class="question"><p>Tu intento está cerrado. Descarga el archivo para que podamos revisar las fórmulas, consultas, código y respuestas abiertas.</p><div class="actions"><button class="btn" id="exportReport" type="button">Descargar resultado de este intento (.json)</button><button class="btn secondary" id="copyReport" type="button">Copiar informe</button><button class="btn secondary" id="exportAll" type="button">Descargar todos los intentos</button><button class="btn secondary" id="startAnother" type="button">Crear siguiente candidato simulado</button></div></div>':
     '<div class="question"><p>Si algo quedó incompleto, puedes volver a la sección correspondiente antes de entregar. Al cerrar se archivará este intento.</p><button class="btn" id="closePilot" type="button">Finalizar prueba y descargar informe</button></div>');
   const close=document.getElementById("closePilot");if(close)close.onclick=()=>finish("entrega_manual");
   const exp=document.getElementById("exportReport");if(exp)exp.onclick=()=>download(collect(),filename(current));
+  const cp=document.getElementById("copyReport");if(cp)cp.onclick=copyReport;
   const all=document.getElementById("exportAll");if(all)all.onclick=()=>download({schema:"MVM_PILOT_BUNDLE_16",exportedAt:now(),attempts:archive},"MVM-Resultados-Piloto.json");
   const next=document.getElementById("startAnother");if(next)next.onclick=createAnother;
  }
@@ -105,6 +106,17 @@ function download(obj,fileName){
   link.href=url;link.download=fileName;document.body.append(link);link.click();link.remove();
   setTimeout(()=>URL.revokeObjectURL(url),60000);
  }catch(e){alert("No se pudo descargar el archivo. Prueba desde otro navegador o utiliza el botón de copiar.");}
+}
+async function copyReport(){
+ const text=JSON.stringify(collect(),null,2);
+ try{
+  if(navigator.clipboard&&navigator.clipboard.writeText){await navigator.clipboard.writeText(text);}
+  else{
+   const a=document.createElement("textarea");a.value=text;a.style.position="fixed";a.style.opacity="0";document.body.append(a);a.select();
+   if(!document.execCommand("copy"))throw Error("clipboard unavailable");a.remove();
+  }
+  const b=document.getElementById("copyReport");if(b)b.textContent="Informe copiado ✓";
+ }catch(e){alert("No fue posible copiar el informe. Usa «Descargar resultado de este intento» y adjunta el archivo JSON.");}
 }
 function finish(reason){
  if(current.finishedAt)return;
