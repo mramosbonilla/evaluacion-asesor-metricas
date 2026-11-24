@@ -179,6 +179,7 @@ render=function(){
   }
   area.insertAdjacentHTML("beforeend",'<div class="question" style="border:2px solid #c87923;background:#fff8eb"><h3>IMPORTANTE · Prueba individual de conocimientos</h3><p><strong>Esta evaluación comprueba tus conocimientos y razonamiento, no tu habilidad para obtener respuestas de herramientas de inteligencia artificial.</strong> No se permite consultar ChatGPT, Copilot, Gemini, otras IA, sitios web, personas o dispositivos externos para recibir, copiar o transcribir respuestas. Debes resolver cada actividad por tus propios medios, utilizando únicamente los datos y herramientas incorporados en esta evaluación.</p><p><strong>Pegar texto no está técnicamente bloqueado</strong>, pero los intentos de pegado en las respuestas generan una advertencia visible y quedan registrados para revisión. Lo mismo sucede con las salidas de la pestaña. No generan una sanción automática y tendrás oportunidad de aclarar cualquier situación.</p><label style="display:flex;gap:10px;align-items:flex-start"><input id="integrityAgreement" type="checkbox" style="margin-top:4px"> Declaro haber leído y comprendido las reglas y me comprometo a resolver personalmente la evaluación sin asistencia externa.</label></div>');
   const integrity=document.getElementById("integrityAgreement");if(integrity)integrity.checked=!!current.integrityAcknowledgedAt;
+  const startButton=document.getElementById("beginPilot");if(startButton)area.append(startButton);
   document.getElementById("beginPilot").onclick=()=>start();
  }
  if(at===1){
@@ -232,6 +233,7 @@ go=function(i){
  if(current.finishedAt&&Number(i)!==8){alert("Este intento ya fue finalizado. Usa «Crear siguiente candidato simulado» para hacer otra prueba.");return;}
  if(!current.startedAt&&Number(i)!==0){alert("Primero pulsa «Comenzar prueba de 75 minutos» en Bienvenida.");return;}
  if(INVITE_CODE&&at===1&&Number(i)>1&&!current.name.trim()){alert("Escribe tu nombre en Identificación antes de continuar.");return;}
+ if(INVITE_CODE&&at===4&&Number(i)>4&&Object.keys(pivotPilotReport?.snapshots||{}).length<3){alert("Primero debes guardar u omitir los tres ejercicios de tablas dinámicas. Al terminar el tercero avanzarás automáticamente.");return;}
  originalGo(i);save();
 };
 function start(){
