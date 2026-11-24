@@ -347,6 +347,13 @@ document.addEventListener("change",e=>{if(e.target?.name==="knowAnswer"){knowled
 window.addEventListener("message",event=>{
  if(event.origin!==location.origin||!event.data||!current.startedAt||current.finishedAt)return;
  const msg=event.data;
+ if(msg.type==="MVM_PIVOT_RESTORE_REQUEST"&&msg.version===21&&at===4){
+  const frame=document.getElementById("pivotPreviewFrame");
+  if(frame?.contentWindow&&(!event.source||event.source===frame.contentWindow)){
+   frame.contentWindow.postMessage({type:"MVM_PIVOT_RESTORE",version:21,snapshots:current.pivot?.snapshots||{}},location.origin);
+  }
+  return;
+ }
  if(msg.type==="MVM_PASTE_NOTICE"&&msg.version===21){
   if(current.monitoring.consentAt)displayPasteNotice(msg);
   return;
