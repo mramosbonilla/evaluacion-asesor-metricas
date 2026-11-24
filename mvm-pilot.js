@@ -54,6 +54,48 @@ function save(){
  current.excel=excelPilotReport;current.pivot=pivotPilotReport;
  store(ACTIVE,current);updateTop();
 }
+function feedbackMarkup(){
+ const deviceChoices=["","PC Windows","Mac","iPhone","Android","Tableta","Otro"];
+ const scores=[["","Sin responder"],["1","1 · Muy difícil"],["2","2 · Difícil"],["3","3 · Aceptable"],["4","4 · Fácil"],["5","5 · Muy fácil"]];
+ const deviceOptions=deviceChoices.map(v=>'<option value="'+safeHtml(v)+'">'+safeHtml(v||"Selecciona el equipo")+'</option>').join("");
+ const scoreOptions=scores.map(v=>'<option value="'+v[0]+'">'+v[1]+'</option>').join("");
+ return '<section class="question" id="feedbackSection"><h3>Comentarios sobre la prueba (fuera del cronómetro)</h3>'+
+ '<p>Ayúdanos a mejorar la experiencia. Los comentarios no cambian tu calificación y quedan incluidos en el archivo que compartas.</p>'+
+ '<label for="feedbackDevice"><strong>¿En qué dispositivo hiciste la prueba?</strong></label><select id="feedbackDevice" style="width:100%;padding:10px;margin:5px 0 12px;border:1px solid #b9cce0;border-radius:8px">'+deviceOptions+'</select>'+
+ '<label for="feedbackClarity"><strong>Claridad de las instrucciones</strong></label><select id="feedbackClarity" style="width:100%;padding:10px;margin:5px 0 12px;border:1px solid #b9cce0;border-radius:8px">'+scoreOptions+'</select>'+
+ '<label for="feedbackNavigation"><strong>Facilidad de navegación y uso</strong></label><select id="feedbackNavigation" style="width:100%;padding:10px;margin:5px 0 12px;border:1px solid #b9cce0;border-radius:8px">'+scoreOptions+'</select>'+
+ '<label for="feedbackIssues"><strong>¿Detectaste errores, bloqueos o dificultades técnicas?</strong></label><textarea id="feedbackIssues" placeholder="Indica la etapa, dispositivo y qué ocurrió…"></textarea>'+
+ '<label for="feedbackSuggestions"><strong>¿Qué mejorarías de la evaluación?</strong></label><textarea id="feedbackSuggestions" placeholder="Comentarios sobre el contenido, duración y experiencia…"></textarea>'+
+ '<p class="muted">Los cambios se guardan en este dispositivo. Después descarga o comparte el archivo definitivo.</p></section>';
+}
+function bindFeedback(){
+ const fields=[["feedbackDevice","device"],["feedbackClarity","clarity"],["feedbackNavigation","navigation"],["feedbackIssues","technicalIssues"],["feedbackSuggestions","suggestions"]];
+ for(const [id,key] of fields){
+  const input=document.getElementById(id);if(!input)continue;
+  input.value=String(current.feedback?.[key]||"");
+  input.addEventListener(id==="feedbackIssues"||id==="feedbackSuggestions"?"input":"change",event=>{
+   current.feedback[key]=event.target.value;save();
+   if(current.finishedAt){
+    const index=archive.findIndex(x=>x.attemptId===current.attemptId);
+    if(index!==-1){archive[index]=collect();store(ARCHIVE,archive);}
+   }
+  });
+ }
+}
+async function shareReport(){
+ if(typeof navigator==="undefined"||typeof File==="undefined"||!navigator.share){
+  alert("Este navegador no permite compartir archivos directamente. Pulsa «Descargar archivo JSON» y adjúntalo a un mensaje privado al coordinador.");
+  return;
+ }
+ const data=JSON.stringify(collect(),null,2),file=new File([data],filename(current),{type:"application/json"});
+ try{
+  if(navigator.canShare&&!navigator.canShare({files:[file]}))throw Error("No admite adjuntos JSON");
+  await navigator.share({files:[file],title:"Entrega piloto MVM · "+(current.inviteCode||""),text:"Adjunto mi archivo de evaluación piloto MVM. Contiene respuestas y comentarios."});
+ }catch(error){
+  if(error&&error.name==="AbortError")return;
+  alert("No fue posible compartir el adjunto desde este navegador. Descarga el JSON y envíalo por correo o WhatsApp como archivo, no como captura de pantalla.");
+ }
+}
 let originalRender=render;
 render=function(){
  originalRender();
@@ -76,11 +118,17 @@ render=function(){
    '<div class="question"><p>Preguntas respondidas: <strong>'+n+'/15</strong> · Casos desarrollados: <strong>'+open+'/3</strong></p>'+
    '<p>Excel: <strong>'+(excelPilotReport?'registrado':'sin entrega')+'</strong> · Tablas dinámicas: <strong>'+pivotCompleted+'/3 ejercicios guardados</strong></p>'+
    '<p>SQL: <strong>'+(current.sql?'registrado':'sin entrega')+'</strong> · Python: <strong>'+(current.python?'registrado':'sin entrega')+'</strong></p></div>'+
-   '<p><strong>La calificación y el ranking son privados.</strong> Se elaborarán después de que compartas los informes de tus dos pruebas. No se mostrarán las claves en esta página.</p>'+
+   '<p><strong>La calificación y el ranking son privados.</strong> El coordinador revisará las respuestas cuando reciba el archivo. No se muestran las claves aquí.</p>'+
    (current.finishedAt?
-    '<div class="question"><p>Tu intento está cerrado. Descarga el archivo para que podamos revisar las fórmulas, consultas, código y respuestas abiertas.</p><p><strong>Archivo:</strong> <code>'+safeHtml(filename(current))+'</code></p><div class="actions"><button class="btn" id="exportReport" type="button">Descargar resultado de este intento (.json)</button><button class="btn secondary" id="copyReport" type="button">Copiar informe</button><button class="btn secondary" id="exportAll" type="button">Descargar todos los intentos</button><button class="btn secondary" id="startAnother" type="button">Crear siguiente candidato simulado</button></div></div>':
+    '<div class="question"><p><strong>Paso final:</strong> completa los comentarios de la sección siguiente. Después descarga el archivo y <strong>envíalo por correo o WhatsApp a la persona que te invitó</strong>. Las respuestas no se envían automáticamente.</p><p><strong>Archivo:</strong> <code>'+safeHtml(filename(current))+'</code></p></div>':
     '<div class="question"><p>Si algo quedó incompleto, puedes volver a la sección correspondiente antes de entregar. Al cerrar se archivará este intento.</p><button class="btn" id="closePilot" type="button">Finalizar prueba y descargar informe</button></div>');
+  if(current.finishedAt){
+   area.insertAdjacentHTML("beforeend",feedbackMarkup());
+   bindFeedback();
+   area.insertAdjacentHTML("beforeend",'<div class="question"><h3>Entrega privada al coordinador</h3><p>Descarga y adjunta el archivo JSON en un mensaje privado. En dispositivos compatibles puedes intentar compartirlo directamente. <strong>Comprueba que la otra persona recibió el archivo.</strong></p><div class="actions"><button class="btn" id="exportReport" type="button">Descargar archivo JSON</button><button class="btn secondary" id="shareReport" type="button">Compartir archivo (móvil)</button><button class="btn secondary" id="copyReport" type="button">Copiar informe</button>'+(INVITE_CODE?'':'<button class="btn secondary" id="exportAll" type="button">Descargar todos los intentos</button><button class="btn secondary" id="startAnother" type="button">Crear siguiente candidato simulado</button>')+'</div><p class="muted">No cierres esta pantalla hasta confirmar que el archivo fue enviado.</p></div>');
+  }
   const close=document.getElementById("closePilot");if(close)close.onclick=()=>finish("entrega_manual");
+  const share=document.getElementById("shareReport");if(share)share.onclick=shareReport;
   const exp=document.getElementById("exportReport");if(exp)exp.onclick=()=>download(collect(),filename(current));
   const cp=document.getElementById("copyReport");if(cp)cp.onclick=copyReport;
   const all=document.getElementById("exportAll");if(all)all.onclick=()=>download({schema:"MVM_PILOT_BUNDLE_16",exportedAt:now(),attempts:archive},"Archivo-TodosLosCandidatos-PruebaAsesor.json");
@@ -92,6 +140,7 @@ const originalGo=go;
 go=function(i){
  if(current.finishedAt&&Number(i)!==8){alert("Este intento ya fue finalizado. Usa «Crear siguiente candidato simulado» para hacer otra prueba.");return;}
  if(!current.startedAt&&Number(i)!==0){alert("Primero pulsa «Comenzar prueba de 75 minutos» en Bienvenida.");return;}
+ if(INVITE_CODE&&at===1&&Number(i)>1&&!current.name.trim()){alert("Escribe tu nombre en Identificación antes de continuar.");return;}
  originalGo(i);save();
 };
 function start(){
@@ -149,7 +198,7 @@ function finish(reason){
  const report=collect();
  archive.push(report);store(ARCHIVE,archive);store(ACTIVE,current);
  const last=at;at=8;updateCurrentStageUrl();render();save();
- if(reason!=="tiempo_agotado")download(report,filename(current));
+ if(reason!=="tiempo_agotado"&&!INVITE_CODE)download(report,filename(current));
  else alert("Se alcanzó el tiempo límite de 75 minutos. La prueba quedó cerrada y guardada localmente. Descarga el informe desde la pantalla final.");
 }
 function createAnother(){
@@ -169,7 +218,7 @@ function updateTop(){
  panel.innerHTML='<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:space-between">'+
  '<div><strong>Prueba piloto</strong> · '+safeHtml(current.name||"Candidato sin identificar")+
  ' <span class="chip">'+(current.finishedAt?'Finalizada':current.startedAt?'En curso':'Sin iniciar')+'</span>'+
- ' <span class="chip">Intentos cerrados en este navegador: '+archive.length+'</span></div>'+
+ ' <span class="chip">'+(INVITE_CODE?'Invitación '+INVITE_CODE:'Intentos cerrados: '+archive.length)+'</span></div>'+
  '<div style="display:flex;gap:9px;align-items:center"><strong id="pilotTimer" style="font-variant-numeric:tabular-nums;font-size:21px">'+clock+'</strong>'+
  '<button type="button" class="btn secondary" id="savePilot" style="padding:7px 10px">Guardar avance</button></div></div>'+
  '<p class="muted" style="margin:4px 0;font-size:12px">'+(storageWorks?'Guardado local en este navegador; no se transmite a ningún servidor.':'Este navegador no permite guardar el avance. Finaliza y descarga el archivo sin cerrar la página.')+'</p>';
