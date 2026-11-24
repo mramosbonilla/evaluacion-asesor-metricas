@@ -1,10 +1,9 @@
-/* MVM · Evaluación piloto v16. Persistencia local; no enviar datos a servidores.
-   Los informes se exportan explícitamente por el evaluador. */
+/* MVM · Evaluación técnica. Estado local con receptor privado opcional y acuse verificable. */
 (function(){
 "use strict";
 const INVITE_CODE=(()=>{const code=(new URLSearchParams(location.search).get("tester")||"").trim().toUpperCase();return /^P0[1-4]$/.test(code)?code:"";})();
-const ACTIVE=INVITE_CODE?"mvm-pilot-active-v18-"+INVITE_CODE:"mvm-pilot-active-v16";
-const ARCHIVE=INVITE_CODE?"mvm-pilot-archive-v18-"+INVITE_CODE:"mvm-pilot-archive-v16";
+const ACTIVE=INVITE_CODE?"mvm-assessment-active-v23-"+INVITE_CODE:"mvm-pilot-active-v16";
+const ARCHIVE=INVITE_CODE?"mvm-assessment-archive-v23-"+INVITE_CODE:"mvm-pilot-archive-v16";
 const now=()=>new Date().toISOString();
 const lookup=key=>{try{return JSON.parse(localStorage.getItem(key)||"null");}catch(e){return null;}};
 let storageWorks=true;
@@ -139,7 +138,7 @@ function feedbackMarkup(){
  '<label for="feedbackNavigation"><strong>Facilidad de navegación y uso</strong></label><select id="feedbackNavigation" style="width:100%;padding:10px;margin:5px 0 12px;border:1px solid #b9cce0;border-radius:8px">'+scoreOptions+'</select>'+
  '<label for="feedbackIssues"><strong>¿Detectaste errores, bloqueos o dificultades técnicas?</strong></label><textarea id="feedbackIssues" placeholder="Indica la etapa, dispositivo y qué ocurrió…"></textarea>'+
  '<label for="feedbackSuggestions"><strong>¿Qué mejorarías de la evaluación?</strong></label><textarea id="feedbackSuggestions" placeholder="Comentarios sobre el contenido, duración y experiencia…"></textarea>'+
- '<p class="muted">Los cambios se guardan en este dispositivo. Después descarga o comparte el archivo definitivo.</p></section>';
+ '<p class="muted">Tus comentarios quedarán incluidos en la entrega de la evaluación.</p></section>';
 }
 function bindFeedback(){
  const fields=[["feedbackDevice","device"],["feedbackClarity","clarity"],["feedbackNavigation","navigation"],["feedbackIssues","technicalIssues"],["feedbackSuggestions","suggestions"]];
@@ -157,7 +156,7 @@ function bindFeedback(){
 }
 async function shareReport(){
  if(typeof navigator==="undefined"||typeof File==="undefined"||!navigator.share){
-  alert("Este navegador no permite compartir archivos directamente. Pulsa «Descargar archivo JSON» y adjúntalo a un mensaje privado al coordinador.");
+  alert("Este dispositivo no permite compartir el archivo directamente. Usa el botón Guardar evaluación y envía el documento al responsable del proceso.");
   return;
  }
  const data=JSON.stringify(collect(),null,2),file=new File([data],filename(current),{type:"application/json"});
@@ -166,7 +165,7 @@ async function shareReport(){
   await navigator.share({files:[file],title:"Evaluación MVM · "+(current.inviteCode||""),text:"Adjunto mi evaluación técnica MVM."});
  }catch(error){
   if(error&&error.name==="AbortError")return;
-  alert("No fue posible compartir el adjunto desde este navegador. Descarga el JSON y envíalo por correo o WhatsApp como archivo, no como captura de pantalla.");
+  alert("No fue posible compartir la evaluación. Guarda el archivo y envíalo como documento adjunto al responsable del proceso.");
  }
 }
 let originalRender=render;
@@ -237,7 +236,7 @@ render=function(){
 };
 const originalGo=go;
 go=function(i){
- if(current.finishedAt&&Number(i)!==8){alert("Este intento ya fue finalizado. Usa «Crear siguiente candidato simulado» para hacer otra prueba.");return;}
+ if(current.finishedAt&&Number(i)!==8){alert("Esta evaluación ya fue finalizada y no puede editarse.");return;}
  if(!current.startedAt&&Number(i)!==0){alert("Primero pulsa «Comenzar prueba de 75 minutos» en Bienvenida.");return;}
  if(INVITE_CODE&&at===1&&Number(i)>1&&!current.name.trim()){alert("Escribe tu nombre en Identificación antes de continuar.");return;}
  if(INVITE_CODE&&at===4&&Number(i)>4&&Object.keys(pivotPilotReport?.snapshots||{}).length<3){alert("Primero debes guardar u omitir los tres ejercicios de tablas dinámicas. Al terminar el tercero avanzarás automáticamente.");return;}
