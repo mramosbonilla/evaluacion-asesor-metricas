@@ -83,7 +83,7 @@ function showPasteWarning(field){
   alert.style.cssText="position:fixed;top:12px;right:12px;max-width:min(560px,calc(100vw - 24px));background:#fff3e8;color:#752713;border:2px solid #bc4b22;border-radius:10px;box-shadow:0 8px 28px #0003;z-index:99999;padding:14px 17px;font:14px/1.45 system-ui,sans-serif";
   const title=document.createElement("strong");title.textContent="ALERTA IMPORTANTE · Regla de integridad";
   const text=document.createElement("p");
-  text.textContent="Se ha registrado un intento de pegar en un área de respuesta. Esta evaluación mide tus conocimientos y prohíbe obtener o transcribir soluciones de IA o fuentes externas. El pegado no fue bloqueado, pero esta acción quedará reflejada en el informe para revisión.";
+  text.textContent="Se ha registrado una acción de pegado en un área de respuesta. Está prohibido recibir, copiar y pegar, o transcribir respuestas obtenidas de IA o fuentes externas: hacerlo constituye una falta a la integridad de la evaluación. El evento quedará registrado para revisión.";
   text.style.margin="7px 0";
   const button=document.createElement("button");
   button.type="button";button.textContent="Entendido";
