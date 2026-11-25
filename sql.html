@@ -34,13 +34,10 @@ table{border-collapse:collapse;width:100%;font-size:14px}th,td{border:1px solid 
 </tbody></table></div>
 </article>
 <article>
-<h2>Editor SQL</h2>
+<h2>Editor SQL</h2><p class="small">Consulta arriba las tablas disponibles y sus columnas; escribe tu consulta completa en el editor vacío. Ejecuta la consulta para ver el resultado antes de finalizar.</p>
 <label for="editor" class="small muted">Escribe SQL de SQLite. Ctrl + Enter o ⌘ + Enter ejecutan la consulta.</label>
-<textarea id="editor" spellcheck="false" aria-label="Editor SQL">SELECT v.fecha, v.tienda, p.categoria, v.unidades, v.precio_unitario
-FROM ventas AS v
-JOIN productos AS p ON p.producto_id = v.producto_id
-LIMIT 8;</textarea>
-<div class="row"><button class="btn" id="run" disabled>Ejecutar consulta</button><button class="btn secondary" id="example">Mostrar ejemplo inicial</button><button class="btn secondary" id="reset">Restablecer datos</button><button class="btn" id="finishSQL" type="button">Terminar SQL y continuar a Python</button></div>
+<textarea id="editor" spellcheck="false" aria-label="Editor SQL"></textarea>
+<div class="row"><button class="btn" id="run" disabled>Ejecutar consulta</button><button class="btn secondary" id="example">Limpiar editor</button><button class="btn secondary" id="reset">Restablecer datos</button><button class="btn" id="finishSQL" type="button">Terminar SQL y continuar a Python</button></div>
 <div id="state" role="status" aria-live="polite">Cargando SQLite…</div>
 <h3>Resultados de ejecución</h3>
 <div id="output" class="scroll" aria-live="polite"><p class="muted">Los resultados aparecerán aquí después de ejecutar la consulta.</p></div>
@@ -96,9 +93,22 @@ $("example").onclick=()=>{$("editor").value=starter;$("editor").focus();};
 $("reset").onclick=()=>{if(SQL){seed();lastExecution=null;$("output").textContent="Datos restablecidos. Ejecuta una consulta.";}}; 
 $("editor").addEventListener("keydown",e=>{if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)){e.preventDefault();execute();}});
 async function init(){if(typeof initSqlJs!=="function"){status("No se pudo descargar el motor SQLite. Revisa Internet y actualiza la página.",true);return;}
- try{SQL=await initSqlJs({locateFile:file=>"https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.13.0/"+file});seed();$("run").disabled=false;execute();}
+ try{SQL=await initSqlJs({locateFile:file=>"https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.13.0/"+file});seed();$("run").disabled=false;}
  catch(e){status("No se pudo iniciar SQLite: "+String(e.message||e),true);}}
 init();
+
+(function(){
+ if(window.parent===window)return;
+ const kind="sql",el=document.getElementById("editor");
+ let api;try{api=window.parent.MVMDraft;}catch(e){return;}if(!api)return;
+ const prev=api.get(kind);
+ if(prev&&typeof prev.code==="string"){el.value=prev.code;lastExecution=prev.lastExecution||null;runCount=Number(prev.runCount)||0;}
+ function persist(){api.put(kind,{code:el.value,lastExecution,runCount});}
+ el.addEventListener("input",persist);
+ document.addEventListener("click",()=>setTimeout(persist,0));
+ window.addEventListener("pagehide",persist);
+ setInterval(persist,1000);
+})();
 })();
 </script>
 <script src="./mvm-monitor.js?v=22"></script></body></html>
