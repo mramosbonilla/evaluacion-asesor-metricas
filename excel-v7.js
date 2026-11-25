@@ -246,6 +246,23 @@ if(new URLSearchParams(location.search).get("embed")==="1"){
  byId("candidate").value="Participante de prueba";
  byId("email").value="";
  byId("goExcel").click();
+ let draftApi;try{draftApi=window.parent.MVMDraft;}catch(e){}
+ if(draftApi){
+  const d=draftApi.get("excel");
+  if(d&&d.cells&&typeof d.cells==="object"){
+   cells=d.cells;cellFormats=d.cellFormats||{};filterChannel=d.filterChannel||"Todos";selected=d.selected||"A1";rangeStart=selected;rangeEnd=null;renderSheet();select(selected);
+  }
+  function persistDraft(){
+   const copy={...cells};
+   const edit=document.querySelector(".inline-edit");
+   if(edit){const k=edit.closest("td[data-cell]")?.dataset?.cell||selected;copy[k]=edit.value;}
+   else if(document.activeElement===byId("fx"))copy[selected]=byId("fx").value;
+   draftApi.put("excel",{cells:copy,cellFormats,filterChannel,selected});
+  }
+  document.addEventListener("input",persistDraft);
+  document.addEventListener("click",()=>setTimeout(persistDraft,0));
+  window.addEventListener("pagehide",persistDraft);setInterval(persistDraft,1000);
+ }
  // Embedded assessments use the single 75-minute clock in the parent evaluation.
  if(interval){clearInterval(interval);interval=null;}
  byId("clock").style.display="none";
