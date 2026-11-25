@@ -31,16 +31,10 @@ table{border-collapse:collapse;width:100%;font-size:14px}th,td{border:1px solid 
 <div class="scroll"><table><thead><tr><th>fecha</th><th>tienda</th><th>categoria</th><th>titulo</th><th>unidades</th><th>precio_unitario</th></tr></thead>
 <tbody><tr><td>2026-02-02</td><td>Centro</td><td>Narrativa</td><td>La isla de papel</td><td>10</td><td>450</td></tr><tr><td>2026-02-02</td><td>Norte</td><td>Infantil</td><td>El bosque de letras</td><td>20</td><td>320</td></tr><tr><td>2026-02-03</td><td>Sur</td><td>Narrativa</td><td>Historias breves</td><td>5</td><td>380</td></tr></tbody></table></div>
 </article>
-<article><h2>Editor Python</h2>
+<article><h2>Editor Python</h2><p class="small">Consulta arriba la estructura y los registros de ventas_mvm.csv. Escribe desde cero el código necesario para leer el archivo, procesar los datos y mostrar el resultado.</p>
 <label for="code" class="muted small">El código se ejecuta con Pyodide. Usa Ctrl + Enter o ⌘ + Enter para ejecutar.</label>
-<textarea id="code" spellcheck="false" aria-label="Editor de Python">import pandas as pd
-
-df = pd.read_csv("ventas_mvm.csv")
-print("Vista inicial de las ventas:")
-print(df.head())
-
-# Reto: calcula importe_total y agrupa por categoria.</textarea>
-<div class="row"><button id="run" disabled>Ejecutar Python</button><button id="restore" class="secondary">Restablecer código</button><button id="reload" class="secondary" disabled>Restablecer archivo CSV</button><button id="finishPython">Terminar Python y continuar</button></div>
+<textarea id="code" spellcheck="false" aria-label="Editor de Python"></textarea>
+<div class="row"><button id="run" disabled>Ejecutar Python</button><button id="restore" class="secondary">Limpiar editor</button><button id="reload" class="secondary" disabled>Restablecer archivo CSV</button><button id="finishPython">Terminar Python y continuar</button></div>
 <div id="status" role="status" aria-live="polite">Preparando motor Python…</div>
 <h2>Salida de Python</h2>
 <pre id="console" aria-live="polite">Esperando la inicialización del motor…</pre>
@@ -118,5 +112,18 @@ async function init(){try{
  }catch(e){status("No se pudo inicializar Python: "+String(e.message||e)+". Revisa la conexión y recarga la página.",true);$("console").textContent="Error de inicialización. No se ha cobrado ningún servicio.";}
 }
 init();
+
+(function(){
+ if(window.parent===window)return;
+ const kind="python",el=document.getElementById("code");
+ let api;try{api=window.parent.MVMDraft;}catch(e){return;}if(!api)return;
+ const prev=api.get(kind);
+ if(prev&&typeof prev.code==="string"){el.value=prev.code;lastExecution=prev.lastExecution||null;runCount=Number(prev.runCount)||0;}
+ function persist(){api.put(kind,{code:el.value,lastExecution,runCount});}
+ el.addEventListener("input",persist);
+ document.addEventListener("click",()=>setTimeout(persist,0));
+ window.addEventListener("pagehide",persist);
+ setInterval(persist,1000);
+})();
 })();
 </script><script src="./mvm-monitor.js?v=22"></script></body></html>
