@@ -28,6 +28,13 @@ if(!("integrityAcknowledgedAt" in current))current.integrityAcknowledgedAt=null;
 if(INVITE_CODE)current.inviteCode=INVITE_CODE;
 if(!current.monitoring)current.monitoring={consentAt:null,parent:null,tools:{}};
 if(!current.monitoring.tools)current.monitoring.tools={};
+if(!current.monitoring.reopens)current.monitoring.reopens={count:0,events:[]};
+if(current.startedAt&&!current.finishedAt){
+ const log=current.monitoring.reopens;log.count=Number(log.count||0)+1;
+ log.events=Array.isArray(log.events)?log.events:[];
+ log.events.push({at:now(),stage:Number(current.stage)||0,elapsedSeconds:Math.max(0,Math.floor((Date.now()-Date.parse(current.startedAt))/1000)),navigationType:performance.getEntriesByType?.("navigation")?.[0]?.type||"unknown"});
+ if(log.events.length>100)log.events.shift();
+}
 window.__MVMMonitoringConsentGranted=!!current.monitoring.consentAt;
 if(window.MVMInteractionMonitor){
  window.MVMInteractionMonitor.restore(current.monitoring.parent);
@@ -44,7 +51,8 @@ function restore(){
  caseIndex=Math.max(0,Math.min(2,Number(current.caseIndex)||0));
  excelPilotReport=current.excel||null;pivotPilotReport=current.pivot||null;
  const forced=new URLSearchParams(location.search).has("etapa");
- at=Math.max(0,Math.min(8,forced?at:(Number(current.stage)||0)));
+ at=Math.max(0,Math.min(8,(forced&&!INVITE_CODE)?at:(Number(current.stage)||0)));
+ if(current.finishedAt)at=8;
  // Los invitados no pueden saltarse la bienvenida y el aviso de monitoreo mediante una URL directa.
  if(INVITE_CODE&&!current.startedAt)at=0;
 }
@@ -76,6 +84,8 @@ function monitoringSummary(){
  const legacyBlockedPaste=[parent,...sources].filter(x=>x.pasteAllowed!==true).reduce((z,x)=>z+Number(x.pasteAttempts||0),0);
  const tabs=Number(parent.visibilityHiddenCount||0),blur=Number(parent.focusLossCount||0);
  const alerts=[];
+ const reopens=data.reopens||{count:0,events:[]};
+ if(reopens.count)alerts.push({code:"ASSESSMENT_REOPENED",level:"informativo",count:reopens.count,evidence:{events:reopens.events||[]},message:"Se reabrió o recargó la evaluación en el mismo perfil de navegador. Puede deberse a una salida accidental, actualización o fallo técnico; no demuestra un reinicio intencional."});
  if(tabs)alerts.push({code:"TAB_HIDDEN",level:"revisar",count:tabs,message:"La pestaña del examen dejó de estar visible "+tabs+" veces. No es posible saber qué pantalla se utilizó."});
  if(blur)alerts.push({code:"FOCUS_LOST",level:"informativo",count:blur,message:"La ventana perdió el foco "+blur+" veces; también puede suceder por funciones normales del navegador."});
  if(pasteEvents||dropEvents)alerts.push({code:"PASTE_DETECTED",level:"revisar",count:pasteEvents+dropEvents,message:"Se registraron "+pasteEvents+" eventos de pegado y "+dropEvents+" de arrastrar contenido en respuestas. El evento no permite conocer el origen del texto; revisar con el candidato."});
@@ -89,15 +99,20 @@ function monitoringSummary(){
    f.substantialRevisionCount===0&&f.multilineRevisionCount===0&&
    f.deletionRatio!==null&&f.deletionRatio<=0.05&&
    f.longestUninterruptedCharacters>=180;
-  if(continuousRapid){
+  // Exploratory calibration from P00; requires several simultaneous indicators.
+  const pausesPerMinute=f.writingSpanMs>0?f.pausesOver5Seconds/(f.writingSpanMs/60000):null;
+  const steadyLowRevision=f.field.startsWith("caso_")&&f.typedCharacters>=250&&f.inputEvents>=150&&f.writingSpanMs>=60000&&
+   f.activeCharactersPerSecond>=2.5&&f.sustainedCharactersPerSecond>=1.8&&pausesPerMinute!==null&&pausesPerMinute<=1&&f.pausesOver10Seconds===0&&
+   f.deletionRatio!==null&&f.deletionRatio<=0.05&&f.substantialRevisionCount===0&&f.multilineRevisionCount===0;
+  if(continuousRapid||steadyLowRevision){
    alerts.push({
-    code:"FAST_CONTINUOUS_LOW_REVISION",level:"revisar",source:f.source,field:f.field,
+    code:continuousRapid?"FAST_CONTINUOUS_LOW_REVISION":"POSSIBLE_TRANSCRIPTION",level:"revisar",source:f.source,field:f.field,
     evidence:{typedCharacters:f.typedCharacters,writingSeconds:Math.round(f.writingSpanMs/1000),
-     sustainedCharactersPerSecond:f.sustainedCharactersPerSecond,pausesOver5Seconds:f.pausesOver5Seconds,
+     sustainedCharactersPerSecond:f.sustainedCharactersPerSecond,activeCharactersPerSecond:f.activeCharactersPerSecond,inputEvents:f.inputEvents,pausesOver5Seconds:f.pausesOver5Seconds,pausesOver10Seconds:f.pausesOver10Seconds,pausesPerMinute:pausesPerMinute===null?null:Number(pausesPerMinute.toFixed(2)),
      deletedCharacters:f.deletedCharacters,deletionRatio:f.deletionRatio,
      substantialRevisionCount:f.substantialRevisionCount,multilineRevisionCount:f.multilineRevisionCount,
      longestUninterruptedCharacters:f.longestUninterruptedCharacters},
-    message:"Se observó escritura sostenida rápida, con muy pocas pausas y sin revisiones extensas detectables en "+f.field+". El patrón podría ser compatible con transcripción, pero también con otras formas legítimas de redacción; requiere revisión contextual, no demuestra consulta de otro equipo."
+    message:"Se observó escritura sostenida, con muy pocas pausas y sin revisiones extensas detectables en "+f.field+". El patrón podría ser compatible con transcripción, pero también con otras formas legítimas de redacción; requiere revisión contextual, no demuestra consulta de otro equipo."
    });
   }
  }
@@ -105,7 +120,7 @@ function monitoringSummary(){
   policy:"Los umbrales de escritura son orientativos y no validados como detector de fraude. Las métricas no afectan la calificación ni constituyen prueba de irregularidad; requieren revisión contextual y posibilidad de aclaración.",
   tabHiddenCount:tabs,hiddenSeconds:Math.round(Number(parent.hiddenMilliseconds||0)/1000),
   windowFocusLossCount:blur,windowUnfocusedSeconds:Math.round(Number(parent.focusLossMilliseconds||0)/1000),
-  copyEvents,pasteEvents,pasteAttempts:pasteEvents,dropEvents,blockedPasteAttempts:legacyBlockedPaste,blockedDropAttempts:0,fields,alerts,detail:{parent,tools:data.tools||{}}};
+  copyEvents,pasteEvents,pasteAttempts:pasteEvents,dropEvents,blockedPasteAttempts:legacyBlockedPaste,blockedDropAttempts:0,reopenCount:reopens.count||0,fields,alerts,detail:{parent,tools:data.tools||{},reopens}};
 }
 function collect(){
  const elapsed=current.startedAt?Math.max(0,Math.round((Date.now()-Date.parse(current.startedAt))/1000)):0;
@@ -386,7 +401,7 @@ function updateTop(){
  '</div>'+
  '<div style="display:flex;gap:9px;align-items:center"><strong id="pilotTimer" style="font-variant-numeric:tabular-nums;font-size:21px">'+clock+'</strong>'+
  '<button type="button" class="btn secondary" id="savePilot" style="padding:7px 10px">Guardar avance</button></div></div>'+
- '<p class="muted" style="margin:4px 0;font-size:12px">'+(storageWorks?'Avance guardado en este dispositivo.':'No se pudo guardar el avance. No cierres la página hasta finalizar.')+'</p>';
+ '<p class="muted" style="margin:4px 0;font-size:12px">'+(storageWorks?(current.startedAt&&!current.finishedAt?'Avance guardado en este navegador. El tiempo sigue corriendo si cierras o recargas la página.':'Avance guardado en este dispositivo.'):'No se pudo guardar el avance. No cierres la página hasta finalizar.')+'</p>';
  const saveBtn=document.getElementById("savePilot");
  if(saveBtn)saveBtn.onclick=()=>{save();saveBtn.textContent="Guardado ✓";};
 }
@@ -458,8 +473,11 @@ function readPending(){
   at=next;
  }
 }
-readPending();save();
-render();
+if(!current.finishedAt)readPending();save();
+render();tick();
 setInterval(tick,1000);
-window.addEventListener("beforeunload",()=>{sync();store(ACTIVE,current);});
+function persistOnLeave(){sync();store(ACTIVE,current);}
+window.addEventListener("pagehide",persistOnLeave);
+document.addEventListener("visibilitychange",()=>{if(document.hidden)persistOnLeave();});
+window.addEventListener("beforeunload",event=>{persistOnLeave();if(current.startedAt&&!current.finishedAt){event.preventDefault();event.returnValue="";}});
 })();
