@@ -2,6 +2,7 @@
 (function(){
 "use strict";
 const INVITE_CODE=(()=>{const code=(new URLSearchParams(location.search).get("tester")||"").trim().toUpperCase();return /^P(?:0[0-9]|1[0-5])$/.test(code)?code:"";})();
+const IS_INTERNAL_TEST=INVITE_CODE==="P00"||!INVITE_CODE;
 const ACTIVE=INVITE_CODE?"mvm-assessment-active-v25-"+INVITE_CODE:"mvm-pilot-active-v16";
 const ARCHIVE=INVITE_CODE?"mvm-assessment-archive-v25-"+INVITE_CODE:"mvm-pilot-archive-v16";
 const now=()=>new Date().toISOString();
@@ -113,7 +114,7 @@ function collect(){
  candidate:{name:current.name.trim()||"Sin nombre",email:current.email.trim()||""},
  createdAt:current.createdAt,startedAt:current.startedAt,finishedAt:current.finishedAt,
  finishReason:current.finishReason||"en curso",timeLimitSeconds:4500,
- pilot:{invitationCode:current.inviteCode||INVITE_CODE||null,feedback:{...current.feedback},mode:INVITE_CODE?"PRUEBA_DE_USABILIDAD":"PILOTO_GENERAL",integrityAcknowledgedAt:current.integrityAcknowledgedAt},
+ pilot:{invitationCode:current.inviteCode||INVITE_CODE||null,feedback:IS_INTERNAL_TEST?{...current.feedback}:{},mode:IS_INTERNAL_TEST?(INVITE_CODE?"PRUEBA_DE_USABILIDAD":"PILOTO_GENERAL"):"EVALUACION_REAL",integrityAcknowledgedAt:current.integrityAcknowledgedAt},
  monitoring:monitoringSummary(),
  elapsedSeconds:current.finishedAt&&current.startedAt?Math.max(0,Math.round((Date.parse(current.finishedAt)-Date.parse(current.startedAt))/1000)):elapsed,
  overtime:elapsed>4500,
@@ -177,7 +178,7 @@ render=function(){
  originalRender();
  if(at===0){
   const area=document.getElementById("body");
-  area.insertAdjacentHTML("beforeend",'<div class="question"><h3>Instrucciones generales</h3><p>La evaluación dispone de <strong>75 minutos</strong>. Resuelve las preguntas y las actividades de manera individual. Puedes guardar los avances dentro de cada herramienta y continuar con las siguientes secciones.</p><p>Al terminar tendrás la oportunidad de dejar comentarios sobre la experiencia y completar la entrega de la evaluación.</p></div>');
+  area.insertAdjacentHTML("beforeend",'<div class="question"><h3>Instrucciones generales</h3><p>La evaluación dispone de <strong>75 minutos</strong>. Resuelve las preguntas y las actividades de manera individual. Puedes guardar los avances dentro de cada herramienta y continuar con las siguientes secciones.</p><p>'+(IS_INTERNAL_TEST?"Al terminar tendrás la oportunidad de dejar comentarios sobre la experiencia y completar la entrega de la evaluación.":"Al terminar, pulsa Guardar y enviar evaluación para entregar tus respuestas.")+'</p></div>');
 
   area.insertAdjacentHTML("beforeend",'<div class="question" style="border:2px solid #c87923;background:#fff8eb"><h3>IMPORTANTE · Prueba individual de conocimientos</h3><p><strong>Esta evaluación comprueba tus conocimientos y razonamiento, no tu habilidad para obtener respuestas de herramientas de inteligencia artificial.</strong> No se permite consultar ChatGPT, Copilot, Gemini, otras IA, sitios web, personas o dispositivos externos para recibir, copiar y pegar, o transcribir respuestas. Debes resolver cada actividad por tus propios medios, utilizando únicamente los datos y herramientas incorporados en esta evaluación. <strong>Incumplir estas reglas constituye una falta a la integridad de la prueba.</strong></p><label style="display:flex;gap:10px;align-items:flex-start"><input id="integrityAgreement" type="checkbox" style="margin-top:4px"> He leído las reglas, me comprometo a resolver la evaluación sin ayuda externa y acepto el registro de mis respuestas e interacciones dentro de la prueba con fines de integridad.</label></div>');
   const integrity=document.getElementById("integrityAgreement");
@@ -217,14 +218,13 @@ render=function(){
    '<p>Excel: '+(excelPilotReport?'completado':'pendiente')+' · Tablas dinámicas: '+(pivotPilotReport?'registradas':'pendientes')+
    ' · SQL: '+(current.sql?'completado':'pendiente')+' · Python: '+(current.python?'completado':'pendiente')+'</p></div>'+
    (current.finishedAt?
-    '<p>Has finalizado las actividades. Antes de entregar, puedes dejar tus comentarios sobre la experiencia.</p>':
-    '<p>Revisa que hayas completado las actividades. Una vez finalizada la evaluación, no podrás modificar tus respuestas.</p><button class="btn" id="closePilot" type="button">Finalizar actividades</button>');
+    (IS_INTERNAL_TEST?'<p>Has finalizado las actividades. Antes de entregar, puedes dejar tus comentarios sobre la experiencia.</p>':'<p>Has finalizado las actividades. Envía tus respuestas si aún no se ha confirmado la recepción.</p>'):
+    '<p>Revisa que hayas completado las actividades. Una vez finalizada la evaluación, no podrás modificar tus respuestas.</p><button class="btn" id="closePilot" type="button">'+(IS_INTERNAL_TEST?"Finalizar actividades":"Guardar y enviar evaluación")+'</button>');
   if(current.finishedAt){
-   area.insertAdjacentHTML("beforeend",feedbackMarkup());
-   bindFeedback();
+   if(IS_INTERNAL_TEST){area.insertAdjacentHTML("beforeend",feedbackMarkup());bindFeedback();}
    const auto=!!window.MVMDelivery?.available?.();
    area.insertAdjacentHTML("beforeend",auto?
-    '<div class="question"><h3>Entrega de la evaluación</h3><p>Cuando hayas terminado tus comentarios, pulsa el botón para enviar tus respuestas al responsable del proceso.</p><button class="btn" id="submitEvaluation" type="button">Guardar y enviar evaluación</button><p id="deliveryStatus" role="status" aria-live="polite"></p><div id="deliveryBackup" style="display:none"><button class="btn secondary" id="exportReport" type="button">Guardar copia de respaldo</button></div></div>':
+    '<div class="question"><h3>Entrega de la evaluación</h3><p>'+(IS_INTERNAL_TEST?"Cuando hayas terminado tus comentarios, pulsa el botón para enviar tus respuestas al responsable del proceso.":"Pulsa el botón para enviar tus respuestas. No cierres la página hasta recibir la confirmación.")+'</p><button class="btn" id="submitEvaluation" type="button">Guardar y enviar evaluación</button><p id="deliveryStatus" role="status" aria-live="polite"></p><div id="deliveryBackup" style="display:none"><button class="btn secondary" id="exportReport" type="button">Guardar copia de respaldo</button></div></div>':
     (window.MVMDelivery?.secureRequired?.()?
      '<div class="question"><h3>Entrega de la evaluación</h3><p>La recepción segura no está disponible en este momento. Contacta al responsable y conserva esta página abierta.</p><button class="btn secondary" id="exportReport" type="button">Guardar copia de respaldo</button></div>':
      '<div class="question"><h3>Entrega de la evaluación</h3><p>Guarda tu evaluación y envíala al responsable del proceso.</p><div class="actions"><button class="btn" id="exportReport" type="button">Guardar evaluación</button><button class="btn secondary" id="shareReport" type="button">Compartir evaluación</button></div></div>'));
@@ -267,7 +267,7 @@ render=function(){
     const st=document.getElementById("deliveryStatus");if(st)st.textContent="Entrega recibida y confirmada.";
    }
   }
-  const close=document.getElementById("closePilot");if(close)close.onclick=()=>finish("entrega_manual");
+  const close=document.getElementById("closePilot");if(close)close.onclick=()=>{finish("entrega_manual");if(!IS_INTERNAL_TEST&&current.finishedAt&&current.delivery?.state!=="confirmed")document.getElementById("submitEvaluation")?.click();};
   const exp=document.getElementById("exportReport");if(exp)exp.onclick=()=>download(collect(),filename(current));
   const share=document.getElementById("shareReport");if(share)share.onclick=shareReport;
  }
