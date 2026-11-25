@@ -5,7 +5,10 @@ const INVITE_CODE=(()=>{const code=(new URLSearchParams(location.search).get("te
 const IS_INTERNAL_TEST=/^P0[0-5]$/.test(INVITE_CODE)||!INVITE_CODE;
 const ACTIVE=INVITE_CODE?"mvm-assessment-active-v25-"+INVITE_CODE:"mvm-pilot-active-v16";
 const ARCHIVE=INVITE_CODE?"mvm-assessment-archive-v25-"+INVITE_CODE:"mvm-pilot-archive-v16";
-const now=()=>new Date().toISOString();
+let serverClockOffset=0,serverClaimed=false,serverBusy=false,serverLastCheckpoint=0,serverCheckpointAt=null,serverLastError="",startBusy=false;
+const clockNow=()=>Date.now()+serverClockOffset;
+const now=()=>new Date(clockNow()).toISOString();
+const requiresSession=()=>!!INVITE_CODE&&window.MVMDelivery?.sessionRequired?.()===true;
 function createAttemptSuffix(){
  if(window.crypto?.getRandomValues){const a=new Uint8Array(10);window.crypto.getRandomValues(a);return Array.from(a,v=>v.toString(16).padStart(2,"0")).join("").toUpperCase();}
  return Math.random().toString(36).slice(2,13).toUpperCase();
@@ -42,7 +45,7 @@ if(window.MVMInteractionMonitor){
   current.monitoring.parent=snapshot;
   store(ACTIVE,current);
  };
- if(current.startedAt&&!current.finishedAt&&current.monitoring.consentAt)window.MVMInteractionMonitor.start();
+ if(current.startedAt&&!current.finishedAt&&current.monitoring.consentAt&&!requiresSession())window.MVMInteractionMonitor.start();
 }
 function restore(){
  for(let i=0;i<15;i++)knowledgeAnswers[i]=Number.isInteger(current.objective[i])?current.objective[i]:-1;
@@ -66,6 +69,78 @@ window.MVMDraft={
   current.drafts[kind]=JSON.parse(raw);return store(ACTIVE,current);
  }catch(e){return false;}}
 };
+function sessionError(reply){
+ const messages={OTHER_BROWSER:"Esta invitación ya comenzó en otro navegador o dispositivo. Continúa allí o contacta al responsable.",CONCURRENT_TAB:"Hay otra pestaña activa con esta invitación. Ciérrala y reintenta cuando termine la sesión anterior.",ALREADY_SUBMITTED:"Esta invitación ya fue entregada.",ATTEMPT_MISMATCH:"La sesión no coincide. Contacta al responsable.",EXPIRED:"El plazo del servidor ya terminó."};
+ return messages[reply?.status]||"El servidor no autorizó el inicio. Reintenta o contacta al responsable.";
+}
+function showResumeError(message){
+ document.getElementById("nav").querySelectorAll("button").forEach(b=>b.disabled=true);
+ const area=document.getElementById("body");area.replaceChildren();
+ const title=document.createElement("h2");title.textContent="Reanudar evaluación";
+ const p=document.createElement("p");p.textContent=message;
+ const btn=document.createElement("button");btn.className="btn";btn.textContent="Reintentar conexión";btn.onclick=()=>resumeServer();
+ area.append(title,p,btn);updateTop();
+}
+async function claimServer(){
+ if(!await window.MVMDelivery.lockPage())throw Error("Hay otra pestaña con esta evaluación abierta. Ciérrala antes de continuar.");
+ const reply=await window.MVMDelivery.requestSession("claim",current.attemptId);
+ if(!reply.ok)throw Error(sessionError(reply));
+ serverClockOffset=Number(reply.serverNow)-Date.now();
+ if(!Number.isFinite(serverClockOffset))serverClockOffset=0;
+ const checkpoint=reply.checkpoint;
+ if(checkpoint?.state?.attemptId===reply.attemptId&&(current.attemptId!==reply.attemptId||Number(checkpoint.state.stage)>Number(current.stage)||(!current.startedAt&&checkpoint.state.startedAt))){
+  current=checkpoint.state;
+  current.drafts=current.drafts||{};
+  current.monitoring=current.monitoring||{consentAt:null,parent:null,tools:{},reopens:{count:0,events:[]}};
+  current.monitoring.tools=current.monitoring.tools||{};
+  current.monitoring.reopens=current.monitoring.reopens||{count:0,events:[]};
+  restore();
+  if(window.MVMInteractionMonitor)window.MVMInteractionMonitor.restore(current.monitoring.parent);
+ }
+ if(current.attemptId!==reply.attemptId){
+  // Same browser identity but local state was lost: no extra time is granted.
+  current=fresh();current.attemptId=reply.attemptId;current.drafts={};
+  current.monitoring={consentAt:null,parent:null,tools:{},reopens:{count:0,events:[]}};
+  restore();
+ }
+ current.startedAt=reply.startedAt;
+ current.integrityAcknowledgedAt=current.integrityAcknowledgedAt||reply.startedAt;
+ current.monitoring.consentAt=current.monitoring.consentAt||reply.startedAt;
+ window.__MVMMonitoringConsentGranted=true;
+ if(!current.finishedAt&&window.MVMInteractionMonitor)window.MVMInteractionMonitor.start();
+ serverClaimed=true;serverCheckpointAt=checkpoint?.savedAt||null;serverLastError="";
+ return reply;
+}
+async function resumeServer(){
+ if(serverBusy)return;
+ serverBusy=true;
+ showResumeError("Verificando la sesión original y el tiempo restante…");
+ const button=document.getElementById("body").querySelector("button");if(button)button.disabled=true;
+ try{
+  const reply=await claimServer();
+  if(current.finishedAt)at=8;else if(at===0)at=1;
+  save();updateCurrentStageUrl();render();tick();
+  if(!reply.expired&&!current.finishedAt)void checkpointServer(true);
+ }catch(e){
+  // Exact retry of a frozen submission is safe if the receipt was lost.
+  if(current.finishedAt&&current.submissionSnapshot&&String(e.message).includes("ya fue entregada")){at=8;render();}
+  else showResumeError(String(e.message||e));
+ }finally{serverBusy=false;}
+}
+async function checkpointServer(force=false){
+ if(!requiresSession()||!serverClaimed||!current.startedAt||current.finishedAt||serverBusy||clockNow()>=Date.parse(current.startedAt)+4500000)return;
+ if(!force&&Date.now()-serverLastCheckpoint<85000)return;
+ if(Date.now()-serverLastCheckpoint<25000)return;
+ serverBusy=true;serverLastCheckpoint=Date.now();
+ try{
+  sync();const snapshot={state:current,report:collect()};
+  const reply=await window.MVMDelivery.requestSession("checkpoint",current.attemptId,snapshot);
+  if(!reply.ok)throw Error(sessionError(reply));
+  serverClockOffset=Number(reply.serverNow)-Date.now();
+  serverCheckpointAt=reply.savedAt;serverLastError="";
+ }catch(e){serverLastError="Copia en servidor pendiente; se conserva la copia local. "+String(e.message||e);}
+ finally{serverBusy=false;updateTop();}
+}
 function monitoringSummary(){
  const data=current.monitoring||{parent:null,tools:{}};
  const parent=data.parent||{};
@@ -132,7 +207,7 @@ function monitoringSummary(){
   copyEvents,pasteEvents,pasteAttempts:pasteEvents,dropEvents,blockedPasteAttempts:legacyBlockedPaste,blockedDropAttempts:0,reopenCount:reopens.count||0,fields,alerts,detail:{parent,tools:data.tools||{},reopens}};
 }
 function collect(){
- const elapsed=current.startedAt?Math.max(0,Math.round((Date.now()-Date.parse(current.startedAt))/1000)):0;
+ const elapsed=current.startedAt?Math.max(0,Math.round((clockNow()-Date.parse(current.startedAt))/1000)):0;
  return {
  schema:"MVM_PILOT_16",assessment:"Asesor de Métricas · MVM",attemptId:current.attemptId,
  candidate:{name:current.name.trim()||"Sin nombre",email:current.email.trim()||""},
@@ -303,6 +378,7 @@ render=function(){
 const originalGo=go;
 go=function(i){
  i=Number(i);
+ if(requiresSession()&&!serverClaimed&&i!==0){alert("Primero verifica la sesión con el servidor.");return;}
  if(INVITE_CODE&&current.startedAt&&!current.finishedAt){
   if(i===at)return;
   if(i!==at+1){alert("Las etapas se completan en orden y no se pueden reabrir.");return;}
@@ -325,7 +401,8 @@ caseMove=function(n){
 const originalQuestionMove=questionMove,originalQuestionJump=questionJump;
 questionMove=function(n){originalQuestionMove(n);save();};
 questionJump=function(n){originalQuestionJump(n);save();};
-function start(){
+async function start(){
+ if(startBusy)return;
  if(window.MVMDelivery?.secureRequired?.()&&!window.MVMDelivery?.available?.()){
   alert("La recepción segura de esta evaluación aún no está habilitada para este enlace. Contacta al responsable antes de comenzar.");
   return;
@@ -345,12 +422,17 @@ function start(){
   if(hint)hint.textContent="Marca la casilla de aceptación de las reglas para continuar.";
   agreement?.focus();return;
  }
+ if(requiresSession()){
+  startBusy=true;const button=document.getElementById("beginPilot");if(button){button.disabled=true;button.textContent="Verificando invitación…";}
+  try{await claimServer();}catch(e){alert(String(e.message||e));render();return;}finally{startBusy=false;}
+ }
  if(!current.integrityAcknowledgedAt)current.integrityAcknowledgedAt=now();
  if(!current.monitoring.consentAt)current.monitoring.consentAt=current.integrityAcknowledgedAt||now();
  window.__MVMMonitoringConsentGranted=true;
  if(window.MVMInteractionMonitor)window.MVMInteractionMonitor.start();
  if(!current.startedAt)current.startedAt=now();
- save();go(1);
+ if(requiresSession()&&at>0){save();render();tick();}else{save();go(1);tick();}
+ if(!current.finishedAt)void checkpointServer(true);
 }
 function sync(){
  current.objective=[...knowledgeAnswers];
@@ -399,7 +481,7 @@ function finish(reason){
  !current.python?"Python sin finalizar":null
  ].filter(x=>x&&x[0]!=="0");
  if(reason!=="tiempo_agotado"&&missing.length&&!confirm("Hay actividades pendientes: "+missing.join("; ")+". ¿Finalizar de todas formas?"))return;
- current.finishedAt=now();current.finishReason=reason;
+ current.finishedAt=requiresSession()?new Date(Math.min(clockNow(),Date.parse(current.startedAt)+4500000)).toISOString():now();current.finishReason=reason;
  if(window.MVMInteractionMonitor){
   window.MVMInteractionMonitor.stop();
   current.monitoring.parent=window.MVMInteractionMonitor.snapshot();
@@ -421,7 +503,7 @@ function createAnother(){
 }
 function updateTop(){
  const panel=document.getElementById("pilotTop");if(!panel)return;
- const elapsed=current.startedAt?Math.max(0,Math.floor((Date.now()-Date.parse(current.startedAt))/1000)):0;
+ const elapsed=current.startedAt?Math.max(0,Math.floor((clockNow()-Date.parse(current.startedAt))/1000)):0;
  const rest=Math.max(0,4500-elapsed);
  const clock=String(Math.floor(rest/60)).padStart(2,"0")+":"+String(rest%60).padStart(2,"0");
  panel.innerHTML='<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:space-between">'+
@@ -432,15 +514,16 @@ function updateTop(){
  '<button type="button" class="btn secondary" id="savePilot" style="padding:7px 10px">Guardar avance</button></div></div>'+
  '<p class="muted" style="margin:4px 0;font-size:12px">'+(storageWorks?(current.startedAt&&!current.finishedAt?'Avance guardado en este navegador. El tiempo sigue corriendo si cierras o recargas la página.':'Avance guardado en este dispositivo.'):'No se pudo guardar el avance. No cierres la página hasta finalizar.')+'</p>';
  const saveBtn=document.getElementById("savePilot");
- if(saveBtn)saveBtn.onclick=()=>{save();saveBtn.textContent="Guardado ✓";};
+ if(saveBtn)saveBtn.onclick=()=>{save();saveBtn.textContent="Guardado ✓";void checkpointServer(true);};
+ if(requiresSession()&&current.startedAt&&!current.finishedAt){const msg=document.createElement("p");msg.className="muted";msg.style.fontSize="12px";msg.textContent=serverLastError|| (serverCheckpointAt?"Copia en servidor confirmada: "+new Date(serverCheckpointAt).toLocaleTimeString():"Copia en servidor pendiente de confirmación.");panel.append(msg);}
 }
 function tick(){
  if(current.finishedAt||!current.startedAt){const el=document.getElementById("pilotTimer");if(el&&!current.startedAt)el.textContent="75:00";return;}
- const elapsed=Math.max(0,Math.floor((Date.now()-Date.parse(current.startedAt))/1000));
+ const elapsed=Math.max(0,Math.floor((clockNow()-Date.parse(current.startedAt))/1000));
  const rest=Math.max(0,4500-elapsed);
  const el=document.getElementById("pilotTimer");
  if(el)el.textContent=String(Math.floor(rest/60)).padStart(2,"0")+":"+String(rest%60).padStart(2,"0");
- if(rest===0)finish("tiempo_agotado");
+ if(rest===0&&(!requiresSession()||serverClaimed)){finish("tiempo_agotado");if(!IS_INTERNAL_TEST)document.getElementById("submitEvaluation")?.click();}
 }
 document.addEventListener("input",e=>{
  if(e.target?.id==="caseResponse"){caseAnswers[caseIndex]=e.target.value;save();}
@@ -503,8 +586,8 @@ function readPending(){
  }
 }
 if(!current.finishedAt&&!INVITE_CODE)readPending();save();
-render();tick();
-setInterval(tick,1000);
+if(requiresSession()&&current.startedAt&&current.delivery?.state!=="confirmed")void resumeServer();else{render();tick();}
+setInterval(tick,1000);setInterval(()=>void checkpointServer(),90000);
 function persistOnLeave(){sync();store(ACTIVE,current);}
 window.addEventListener("pagehide",persistOnLeave);
 document.addEventListener("visibilitychange",()=>{if(document.hidden)persistOnLeave();});
