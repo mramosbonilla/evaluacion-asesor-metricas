@@ -326,11 +326,13 @@ function finishAndContinue(){
 }
 function moveAfterSave(skipped){
  const n=activeExercise;
- if(!skipped&&!$("valueField").value){
-  alert("Para guardar un ejercicio resuelto, construye primero una tabla con una medida en Valores. Si no sabes resolverlo, utiliza «No sé resolverlo».");
-  return;
+ if(!skipped&&!$("valueField").value)skipped=true;
+ if(skipped){
+  if(!confirm("Ejercicio "+n+" sin resolver. No recibirá puntuación. Si continúas, no podrás regresar a este ejercicio. ¿Seguro que deseas continuar?"))return;
+ }else{
+  const missing=tasks[n-1].questions.filter(([k])=>!($("pivotAnswer-"+k)?.value||"").trim()).length;
+  if(missing&&!confirm("Ejercicio incompleto: "+missing+" respuesta(s) pendiente(s). Las respuestas pendientes no recibirán puntuación. Se conservará la tabla construida para calificación parcial. Si continúas, no podrás regresar a este ejercicio. ¿Seguro que deseas continuar?"))return;
  }
- if(skipped&&!confirm("¿Dejar el ejercicio "+n+" sin resolver y continuar?"))return;
  saveSnapshot(n,skipped);
  if(n===3){finishAndContinue();return;}
  activeExercise++;
