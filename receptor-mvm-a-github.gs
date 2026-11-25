@@ -126,7 +126,7 @@ function mvmSessionIdentity_(params){
 function mvmReadJson_(cfg,path){
  const response=mvmFile_(cfg.token,cfg.repo,"GET",path);
  if(response.status===404)return null;
- if(response.status!==200)throw Error("No se pudo leer almacenamiento privado");
+ if(response.status!==200)throw Error("GITHUB_READ_HTTP_"+response.status);
  const raw=Utilities.newBlob(Utilities.base64Decode(String(response.data.content||"").replace(/\s/g,""))).getDataAsString("UTF-8");
  return {sha:response.data.sha,raw,value:JSON.parse(raw)};
 }
@@ -136,8 +136,8 @@ function mvmWriteJson_(cfg,path,value,previous){
  const body={message:"MVM registro privado "+path,content:Utilities.base64Encode(Utilities.newBlob(raw).getBytes())};
  if(previous)body.sha=previous.sha;
  const result=mvmFile_(cfg.token,cfg.repo,"PUT",path,body);
- if(result.status!==(previous?200:201))throw Error("No se confirmó escritura privada");
- return {sha:result.data.content.sha,raw,value};
+ if(result.status!==(previous?200:201))throw Error("GITHUB_WRITE_HTTP_"+result.status);
+ return {sha:result.data.content?.sha||null,raw,value};
 }
 function mvmAudit_(session,kind,t){
  session.audit=Array.isArray(session.audit)?session.audit:[];
@@ -166,7 +166,7 @@ function mvmSessionAction_(params){
    let cfg=null;const getCfg=()=>cfg||(cfg=mvmPrivateConfig_(prop));
    const auditWrite=()=>{
     const path="auditoria/"+session.year+"/"+code+".json";
-    try{const conf=getCfg();mvmWriteJson_(conf,path,mvmPublicAudit_(session),mvmReadJson_(conf,path));}catch(e){/* counts remain in private script properties */}
+    try{const conf=getCfg();mvmWriteJson_(conf,path,mvmPublicAudit_(session),mvmReadJson_(conf,path));}catch(e){console.warn("MVM AUDIT "+code+" "+mvmSafeDiagnostic_(e));}
    };
    if(!session){
     if(action!=="claim"){reply.status="CLAIM_REQUIRED";return mvmReceipt_(reply);}
@@ -214,7 +214,7 @@ function mvmSessionAction_(params){
    mvmWriteJson_(conf,progressPath,record,previous);session.checkpointAt=t;session.stage=st.stage;save();
    reply.ok=true;reply.status="SAVED";reply.savedAt=record.savedAt;return mvmReceipt_(reply);
   }finally{lock.releaseLock();}
- }catch(e){reply.ok=false;}
+ }catch(e){reply.ok=false;reply.diagnostic=mvmSafeDiagnostic_(e);console.warn("MVM SESSION "+action+" "+reply.diagnostic);}
  return mvmReceipt_(reply);
 }
 
@@ -300,4 +300,41 @@ function doPost(e){
   return mvmReceipt_({type:"MVM_DELIVERY_RECEIPT",version:25,
     ok:accepted,duplicate:alreadyReceived,attemptId,nonce,
     receivedAt:accepted?new Date().toISOString():null});
+}
+
+/* Diagnóstico administrativo: registra exclusivamente estados y códigos HTTP.
+   No muestra tokens, claves, hashes, correos ni respuestas. */
+function mvmSafeDiagnostic_(e){
+ const s=String(e&&e.message||"");
+ if(/^GITHUB_(READ|WRITE)_HTTP_[0-9]{3}$/.test(s))return s;
+ if(s==="Avance inválido")return "CHECKPOINT_VALIDATION";
+ if(s==="Tamaño de avance no permitido"||s==="Tamaño de registro excedido")return "PAYLOAD_SIZE";
+ if(s==="Destino privado sin configurar"||s==="El destino no es un repositorio privado autorizado.")return "PRIVATE_REPO_CONFIG";
+ if(s==="Invitación inválida"||s==="Identidad de sesión inválida"||s==="Intento inválido")return "SESSION_AUTH";
+ if(/lock|bloqueo/i.test(s))return "LOCK_ERROR";
+ return "OTHER_SERVER_ERROR";
+}
+function mvmDiagnosticoP01(){
+ const result={session:"NO",checkpoint:"NO",audit:"NO",read:"NO",write:"NO"};
+ const prop=PropertiesService.getScriptProperties();
+ const lock=LockService.getScriptLock();lock.waitLock(25000);
+ try{
+  const raw=prop.getProperty("MVM_SESSION_P01");
+  const session=raw?JSON.parse(raw):null;
+  result.session=session?"SI":"NO";
+  const cfg=mvmPrivateConfig_(prop);result.read="SI";
+  const year=session?session.year:String(new Date().getUTCFullYear());
+  result.checkpoint=mvmReadJson_(cfg,"avances/"+year+"/P01.json")?"SI":"NO";
+  const path="diagnostico/"+year+"/conexion-P01.json";
+  const prev=mvmReadJson_(cfg,path);
+  mvmWriteJson_(cfg,path,{test:"MVM_CONNECTION_CHECK",at:new Date().toISOString()},prev);
+  result.write="SI";
+  if(session){
+   const auditPath="auditoria/"+year+"/P01.json";
+   mvmWriteJson_(cfg,auditPath,mvmPublicAudit_(session),mvmReadJson_(cfg,auditPath));
+   result.audit="SI";
+  }
+ }catch(e){result.error=mvmSafeDiagnostic_(e);}
+ finally{lock.releaseLock();}
+ Logger.log(JSON.stringify(result));
 }
