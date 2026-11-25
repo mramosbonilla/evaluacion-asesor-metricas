@@ -19,23 +19,34 @@ function secureNonce(){
 }
 function available(){return !!endpoint()&&!!invitation()&&!!window.crypto?.getRandomValues;}
 function sessionRequired(){return window.MVM_RECEIVER_CONFIG?.sessionRequired===true;}
+// A stable lease identity is safe only while the browser's exclusive Web Lock is held.
+// Same browser/profile + same invitation can then resume immediately after close/reload.
+// Without Web Locks, retain the per-tab identity and the server's original lease protection.
+let pageLockPromise=null,pageLockHeld=false;
 function identity(){
  const invite=invitation();if(!invite)throw Error("Invitación inválida");
  const key="mvm-session-browser-v31-"+invite.code,tabKey="mvm-session-tab-v31-"+invite.code;
+ const ownerKey="mvm-session-owner-v35-"+invite.code;
  let browser=localStorage.getItem(key),tab=sessionStorage.getItem(tabKey);
  if(!/^[a-f0-9]{48}$/.test(browser||"")){browser=secureNonce();localStorage.setItem(key,browser);}
- if(!/^[a-f0-9]{48}$/.test(tab||"")){tab=secureNonce();sessionStorage.setItem(tabKey,tab);}
+ if(pageLockHeld){
+  let owner=localStorage.getItem(ownerKey);
+  if(!/^[a-f0-9]{48}$/.test(owner||"")){
+   owner=/^[a-f0-9]{48}$/.test(tab||"")?tab:secureNonce();
+   localStorage.setItem(ownerKey,owner);
+  }
+  tab=owner;sessionStorage.setItem(tabKey,tab);
+ }else if(!/^[a-f0-9]{48}$/.test(tab||"")){tab=secureNonce();sessionStorage.setItem(tabKey,tab);}
  return {browser,tab};
 }
-let pageLockPromise=null;
 function lockPage(){
  if(!navigator.locks?.request)return Promise.resolve(true);
  if(!pageLockPromise)pageLockPromise=new Promise(resolve=>{
   const invite=invitation();if(!invite){resolve(false);return;}
   navigator.locks.request("mvm-session-v31-"+invite.code,{ifAvailable:true},lock=>{
-   if(!lock){pageLockPromise=null;resolve(false);return;}
-   resolve(true);return new Promise(()=>{});
-  }).catch(()=>{pageLockPromise=null;resolve(false);});
+   if(!lock){pageLockHeld=false;pageLockPromise=null;resolve(false);return;}
+   pageLockHeld=true;resolve(true);return new Promise(()=>{});
+  }).catch(()=>{pageLockHeld=false;pageLockPromise=null;resolve(false);});
  });
  return pageLockPromise;
 }
