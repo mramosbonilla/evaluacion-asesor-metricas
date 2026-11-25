@@ -132,12 +132,23 @@ function mvmReadJson_(cfg,path){
 }
 function mvmWriteJson_(cfg,path,value,previous){
  const raw=JSON.stringify(value);
- if(Utilities.newBlob(raw).getBytes().length>MVM_MAX_BYTES)throw Error("Tamaño de registro excedido");
- const body={message:"MVM registro privado "+path,content:Utilities.base64Encode(Utilities.newBlob(raw).getBytes())};
- if(previous)body.sha=previous.sha;
- const result=mvmFile_(cfg.token,cfg.repo,"PUT",path,body);
- if(result.status!==(previous?200:201))throw Error("GITHUB_WRITE_HTTP_"+result.status);
- return {sha:result.data.content?.sha||null,raw,value};
+ const bytes=Utilities.newBlob(raw).getBytes();
+ if(bytes.length>MVM_MAX_BYTES)throw Error("Tamaño de registro excedido");
+ const content=Utilities.base64Encode(bytes);
+ let lastStatus=0;
+ for(let i=0;i<3;i++){
+  const body={message:"MVM registro privado "+path,content};
+  if(previous)body.sha=previous.sha;
+  const result=mvmFile_(cfg.token,cfg.repo,"PUT",path,body);
+  lastStatus=result.status;
+  if(result.status===(previous?200:201))return {sha:result.data.content?.sha||null,raw,value};
+  // A write may have completed even though its response was lost.
+  if(![409,422,429,500,502,503,504].includes(lastStatus))throw Error("GITHUB_WRITE_HTTP_"+lastStatus);
+  if(i<2)Utilities.sleep(400*(i+1));
+  previous=mvmReadJson_(cfg,path);
+  if(previous&&previous.raw===raw)return previous;
+ }
+ throw Error("GITHUB_WRITE_HTTP_"+lastStatus);
 }
 function mvmAudit_(session,kind,t){
  session.audit=Array.isArray(session.audit)?session.audit:[];
@@ -324,7 +335,9 @@ function mvmDiagnosticoP01(){
   result.session=session?"SI":"NO";
   const cfg=mvmPrivateConfig_(prop);result.read="SI";
   const year=session?session.year:String(new Date().getUTCFullYear());
-  result.checkpoint=mvmReadJson_(cfg,"avances/"+year+"/P01.json")?"SI":"NO";
+  const checkpoint=mvmReadJson_(cfg,"avances/"+year+"/P01.json");
+  result.checkpoint=checkpoint?.value?.schema==="MVM_PROGRESS_1"?"SI":checkpoint?"CONTENEDOR_VACIO":"NO";
+  if(checkpoint?.value?.schema==="MVM_PROGRESS_1"){result.savedAt=checkpoint.value.savedAt;result.stage=checkpoint.value.state?.stage;result.answers=checkpoint.value.report?.progress?.objectiveAnswered;}
   const path="diagnostico/"+year+"/conexion-P01.json";
   const prev=mvmReadJson_(cfg,path);
   mvmWriteJson_(cfg,path,{test:"MVM_CONNECTION_CHECK",at:new Date().toISOString()},prev);
