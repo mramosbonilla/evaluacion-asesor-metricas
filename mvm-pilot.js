@@ -120,7 +120,7 @@ async function resumeServer(){
   const reply=await claimServer();
   if(current.finishedAt)at=8;else if(at===0)at=1;
   save();updateCurrentStageUrl();render();tick();
-  if(!reply.expired&&!current.finishedAt)void checkpointServer(true);
+  if(!reply.expired&&!current.finishedAt)setTimeout(()=>void checkpointServer(true),0);
  }catch(e){
   // Exact retry of a frozen submission is safe if the receipt was lost.
   if(current.finishedAt&&current.submissionSnapshot&&String(e.message).includes("ya fue entregada")){at=8;render();}
@@ -221,6 +221,7 @@ function collect(){
  knowledge:knowledgeData.map((entry,i)=>({number:i+1,question:entry[0],selected:knowledgeAnswers[i]<0?null:"ABCD"[knowledgeAnswers[i]],selectedText:knowledgeAnswers[i]<0?null:entry[1][knowledgeAnswers[i]]})),
  openCases:caseData.map((entry,i)=>({number:i+1,title:entry[0],prompt:entry[1],response:caseAnswers[i]})),
  practical:{excel:excelPilotReport,pivot:pivotPilotReport,sql:current.sql||null,python:current.python||null},
+ practicalDrafts:current.drafts||{},
  review:{status:"PENDIENTE_DE_REVISION",note:"Sin respuestas correctas en el archivo público. Revisión y ranking deben hacerse fuera de GitHub Pages."}
  };
 }
