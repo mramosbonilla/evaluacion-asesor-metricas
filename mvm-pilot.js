@@ -2,7 +2,7 @@
 (function(){
 "use strict";
 const INVITE_CODE=(()=>{const code=(new URLSearchParams(location.search).get("tester")||"").trim().toUpperCase();return /^P(?:0[0-9]|1[0-5])$/.test(code)?code:"";})();
-const IS_INTERNAL_TEST=INVITE_CODE==="P00"||!INVITE_CODE;
+const IS_INTERNAL_TEST=/^P0[0-5]$/.test(INVITE_CODE)||!INVITE_CODE;
 const ACTIVE=INVITE_CODE?"mvm-assessment-active-v25-"+INVITE_CODE:"mvm-pilot-active-v16";
 const ARCHIVE=INVITE_CODE?"mvm-assessment-archive-v25-"+INVITE_CODE:"mvm-pilot-archive-v16";
 const now=()=>new Date().toISOString();
