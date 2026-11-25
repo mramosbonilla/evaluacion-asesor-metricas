@@ -208,16 +208,14 @@ function onFinish(){
  if(finished)return;
  const required=["J3","J4","J5","J7"];
  const missing=required.filter(k=>!String(cells[k]??"").trim().startsWith("="));
- if(missing.length){
-  alert("Las cuatro respuestas finales deben contener fórmulas. No puedes escribir el resultado como número ni texto. Faltan: "+missing.join(", ")+".");
-  select(missing[0]);return;
- }
- const unrelated=required.filter(k=>!usesSourceData(k));
- if(unrelated.length){
-  alert("La fórmula debe calcularse a partir de los datos de la hoja, directamente o mediante otras celdas con fórmulas. No se aceptan fórmulas de solo números o textos fijos. Revisa: "+unrelated.join(", ")+".");
-  select(unrelated[0]);return;
- }
- if(!confirm("¿Confirmas que has terminado la práctica de Excel? Podrás continuar con las demás secciones de la evaluación."))return;
+ const unrelated=required.filter(k=>!missing.includes(k)&&!usesSourceData(k));
+ const incomplete=[...missing,...unrelated];
+ if(incomplete.length){
+  const notices=[];
+  if(missing.length)notices.push("Respuestas pendientes o sin fórmula: "+missing.join(", ")+".");
+  if(unrelated.length)notices.push("Fórmulas que no utilizan los datos de la hoja: "+unrelated.join(", ")+".");
+  if(!confirm("Práctica incompleta: "+incomplete.length+" de "+required.length+" respuestas sin fórmula válida.\n\n"+notices.join("\n")+"\n\nEstas respuestas no recibirán puntuación. Si continúas, no podrás regresar a esta sección. ¿Seguro que deseas finalizar?")){select(incomplete[0]);return;}
+ }else if(!confirm("¿Confirmas que has terminado la práctica de Excel? No podrás regresar a esta sección."))return;
  finished=true;clearInterval(interval);result=grade();
  if(window.parent!==window&&new URLSearchParams(location.search).get("embed")==="1"){
   window.parent.postMessage({type:"MVM_EXCEL_COMPLETE",version:7,score:result.score,answers:result.answers,helperFormulas:result.helperFormulas,formulaChecks:result.tests.map(t=>({cell:t.cell,hasFormula:t.hasFormula,dataLinked:t.dataLinked,correct:t.ok}))},location.origin);
