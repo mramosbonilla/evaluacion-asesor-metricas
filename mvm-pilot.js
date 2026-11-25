@@ -180,13 +180,28 @@ render=function(){
   area.insertAdjacentHTML("beforeend",'<div class="question"><h3>Instrucciones generales</h3><p>La evaluación dispone de <strong>75 minutos</strong>. Resuelve las preguntas y las actividades de manera individual. Puedes guardar los avances dentro de cada herramienta y continuar con las siguientes secciones.</p><p>Al terminar tendrás la oportunidad de dejar comentarios sobre la experiencia y completar la entrega de la evaluación.</p></div>');
 
   area.insertAdjacentHTML("beforeend",'<div class="question" style="border:2px solid #c87923;background:#fff8eb"><h3>IMPORTANTE · Prueba individual de conocimientos</h3><p><strong>Esta evaluación comprueba tus conocimientos y razonamiento, no tu habilidad para obtener respuestas de herramientas de inteligencia artificial.</strong> No se permite consultar ChatGPT, Copilot, Gemini, otras IA, sitios web, personas o dispositivos externos para recibir, copiar y pegar, o transcribir respuestas. Debes resolver cada actividad por tus propios medios, utilizando únicamente los datos y herramientas incorporados en esta evaluación. <strong>Incumplir estas reglas constituye una falta a la integridad de la prueba.</strong></p><label style="display:flex;gap:10px;align-items:flex-start"><input id="integrityAgreement" type="checkbox" style="margin-top:4px"> He leído las reglas, me comprometo a resolver la evaluación sin ayuda externa y acepto el registro de mis respuestas e interacciones dentro de la prueba con fines de integridad.</label></div>');
-  const integrity=document.getElementById("integrityAgreement");if(integrity)integrity.checked=!!current.integrityAcknowledgedAt;
-  const startButton=document.getElementById("beginPilot");if(startButton){startButton.disabled=false;area.append(startButton);}
-  if(startButton&&window.MVMDelivery?.secureRequired?.()&&!window.MVMDelivery?.available?.()){
-   startButton.disabled=true;startButton.textContent="Evaluación aún no habilitada";
-   area.insertAdjacentHTML("beforeend",'<p class="muted" role="status">Esta evaluación todavía no está disponible para ser presentada. Contacta al responsable del proceso.</p>');
+  const integrity=document.getElementById("integrityAgreement");
+  if(integrity)integrity.checked=!!current.integrityAcknowledgedAt;
+  const startButton=document.getElementById("beginPilot");
+  if(startButton){
+   const blocked=window.MVMDelivery?.secureRequired?.()&&!window.MVMDelivery?.available?.();
+   const hint=document.createElement("p");
+   hint.id="beginPilotHint";hint.setAttribute("role","status");hint.setAttribute("aria-live","polite");
+   hint.style.cssText="font-size:14px;font-weight:600;margin:12px 0 4px";
+   area.append(hint,startButton);
+   startButton.setAttribute("aria-describedby",hint.id);
+   function refreshStart(){
+    const agreed=!!current.integrityAcknowledgedAt||!!integrity?.checked;
+    startButton.disabled=!!blocked||!agreed;
+    startButton.style.opacity=startButton.disabled?"0.55":"1";
+    startButton.style.cursor=startButton.disabled?"not-allowed":"pointer";
+    startButton.textContent=blocked?"Evaluación aún no habilitada":"Comenzar evaluación · 75 minutos";
+    hint.textContent=blocked?"Esta evaluación todavía no está disponible. Contacta al responsable del proceso.":agreed?"Todo listo. Pulsa el botón para iniciar el cronómetro y continuar.":"Marca la casilla de aceptación de las reglas para habilitar el botón.";
+   }
+   integrity?.addEventListener("change",refreshStart);
+   startButton.onclick=()=>start();
+   refreshStart();
   }
-  document.getElementById("beginPilot").onclick=()=>start();
  }
  if(at===1){
   const name=document.querySelector('#body input[type="text"]'),email=document.querySelector('#body input[type="email"]');
@@ -281,7 +296,10 @@ function start(){
   return;
  }
  if(!current.integrityAcknowledgedAt&&!document.getElementById("integrityAgreement")?.checked){
-  alert("Para comenzar debes leer y aceptar las reglas de conocimientos propios y ausencia de asistencia externa.");return;
+  const agreement=document.getElementById("integrityAgreement");
+  const hint=document.getElementById("beginPilotHint");
+  if(hint)hint.textContent="Marca la casilla de aceptación de las reglas para continuar.";
+  agreement?.focus();return;
  }
  if(!current.integrityAcknowledgedAt)current.integrityAcknowledgedAt=now();
  if(!current.monitoring.consentAt)current.monitoring.consentAt=current.integrityAcknowledgedAt||now();
