@@ -352,8 +352,26 @@ window.addEventListener("message",event=>{
  if(count)$("savedState").textContent=count+" de 3 ejercicios recuperados. Continúa con el ejercicio "+activeExercise+".";
 });
 onUpdate();renderTask();
-if(inEvaluation)window.addEventListener("load",()=>{
- window.parent.postMessage({type:"MVM_PIVOT_RESTORE_REQUEST",version:21},location.origin);
-});
+if(inEvaluation){
+ let api;try{api=window.parent.MVMDraft;}catch(e){}
+ const d=api?.get("pivot");
+ if(d&&d.activeExercise>=1&&d.activeExercise<=3){
+  snapshots=d.snapshots||{};activeExercise=d.activeExercise;
+  for(const id of ["rowField","colField","valueField","aggregate","filterField","sortOrder"])if(d.builder&&d.builder[id]!=null)$(id).value=d.builder[id];
+  lastFilter=$("filterField").value;selectedFilterValues=new Set(d.filterValues||[]);
+  onUpdate();renderTask();
+  for(const [k,v] of Object.entries(d.answers||{})){const el=$("pivotAnswer-"+k);if(el)el.value=v;}
+ }
+ function persistDraft(){
+  if(!api)return;
+  const builder=Object.fromEntries(["rowField","colField","valueField","aggregate","filterField","sortOrder"].map(id=>[id,$(id).value]));
+  const answers=Object.fromEntries(tasks[activeExercise-1].questions.map(([k])=>[k,$("pivotAnswer-"+k)?.value||""]));
+  api.put("pivot",{activeExercise,snapshots,builder,answers,filterValues:[...selectedFilterValues]});
+ }
+ document.addEventListener("input",persistDraft);document.addEventListener("change",persistDraft);
+ document.addEventListener("click",()=>setTimeout(persistDraft,0));
+ window.addEventListener("pagehide",persistDraft);setInterval(persistDraft,1000);
+ if(!d)window.parent.postMessage({type:"MVM_PIVOT_RESTORE_REQUEST",version:21},location.origin);
+}
 })();
 </script><script src="./mvm-monitor.js?v=22"></script></body></html>
