@@ -57,6 +57,15 @@ function restore(){
  if(INVITE_CODE&&!current.startedAt)at=0;
 }
 restore();
+if(!current.drafts||typeof current.drafts!=="object")current.drafts={};
+const draftStages={excel:3,pivot:4,sql:5,python:6};
+window.MVMDraft={
+ get(kind){return draftStages[kind]===at&&current.startedAt&&!current.finishedAt?current.drafts[kind]||null:null;},
+ put(kind,value){if(draftStages[kind]!==at||!current.startedAt||current.finishedAt)return false;try{
+  const raw=JSON.stringify(value);if(raw.length>180000)return false;
+  current.drafts[kind]=JSON.parse(raw);return store(ACTIVE,current);
+ }catch(e){return false;}}
+};
 function monitoringSummary(){
  const data=current.monitoring||{parent:null,tools:{}};
  const parent=data.parent||{};
@@ -191,6 +200,9 @@ async function shareReport(){
 let originalRender=render;
 render=function(){
  originalRender();
+ if(INVITE_CODE){
+  document.querySelectorAll("#nav button").forEach((b,i)=>{b.disabled=i!==at;b.style.opacity=i>at?"0.60":"1";if(i<at)b.textContent+=" ✓";});
+ }
  if(at===0){
   const area=document.getElementById("body");
   area.insertAdjacentHTML("beforeend",'<div class="question"><h3>Instrucciones generales</h3><p>La evaluación dispone de <strong>75 minutos</strong>. Resuelve las preguntas y las actividades de manera individual. Puedes guardar los avances dentro de cada herramienta y continuar con las siguientes secciones.</p><p>'+(IS_INTERNAL_TEST?"Al terminar tendrás la oportunidad de dejar comentarios sobre la experiencia y completar la entrega de la evaluación.":"Al terminar, pulsa Guardar y enviar evaluación para entregar tus respuestas.")+'</p></div>');
@@ -290,12 +302,29 @@ render=function(){
 };
 const originalGo=go;
 go=function(i){
+ i=Number(i);
+ if(INVITE_CODE&&current.startedAt&&!current.finishedAt){
+  if(i===at)return;
+  if(i!==at+1){alert("Las etapas se completan en orden y no se pueden reabrir.");return;}
+  if(at===3&&!excelPilotReport){alert("Termina la práctica de Excel desde su botón.");return;}
+  if(at===4&&!pivotPilotReport?.completed){alert("Termina los tres ejercicios de tabla dinámica.");return;}
+  if(at===5&&!current.sql){alert("Finaliza SQL desde su botón.");return;}
+  if(at===6&&!current.python){alert("Finaliza Python desde su botón.");return;}
+ }
  if(current.finishedAt&&Number(i)!==8){alert("Esta evaluación ya fue finalizada y no puede editarse.");return;}
  if(!current.startedAt&&Number(i)!==0){alert("Primero pulsa «Comenzar prueba de 75 minutos» en Bienvenida.");return;}
  if(INVITE_CODE&&at===1&&Number(i)>1&&!current.name.trim()){alert("Escribe tu nombre en Identificación antes de continuar.");return;}
  if(INVITE_CODE&&at===4&&Number(i)>4&&Object.keys(pivotPilotReport?.snapshots||{}).length<3){alert("Primero debes guardar u omitir los tres ejercicios de tablas dinámicas. Al terminar el tercero avanzarás automáticamente.");return;}
  originalGo(i);save();
 };
+const originalCaseMove=caseMove;
+caseMove=function(n){
+ if(INVITE_CODE){if(n!==1)return;if(!confirm("¿Confirmas que deseas cerrar este caso? No podrás modificarlo después."))return;}
+ originalCaseMove(n);save();
+};
+const originalQuestionMove=questionMove,originalQuestionJump=questionJump;
+questionMove=function(n){originalQuestionMove(n);save();};
+questionJump=function(n){originalQuestionJump(n);save();};
 function start(){
  if(window.MVMDelivery?.secureRequired?.()&&!window.MVMDelivery?.available?.()){
   alert("La recepción segura de esta evaluación aún no está habilitada para este enlace. Contacta al responsable antes de comenzar.");
@@ -439,25 +468,25 @@ window.addEventListener("message",event=>{
   return;
  }
  if(msg.type==="MVM_EXCEL_COMPLETE"&&msg.version===7){
-  // The existing page listener updates excelPilotReport and navigates.
+  if(at!==3||event.source!==document.getElementById("excelPreviewFrame")?.contentWindow)return;
   current.excel={score:Number(msg.score)||0,answers:msg.answers||{},helperFormulas:msg.helperFormulas||[],formulaChecks:msg.formulaChecks||[],completedAt:now()};
-  excelPilotReport=current.excel;save();
+  excelPilotReport=current.excel;delete current.drafts.excel;save();go(4);
  }
- if(msg.type==="MVM_PIVOT_PROGRESS"&&msg.version===16){
+ if(msg.type==="MVM_PIVOT_PROGRESS"&&msg.version===16&&at===4&&event.source===document.getElementById("pivotPreviewFrame")?.contentWindow){
   current.pivot={...(current.pivot||{}),snapshots:msg.snapshots||{},lastSavedAt:now(),completed:false};
   pivotPilotReport=current.pivot;save();
  }
- if(msg.type==="MVM_PIVOT_COMPLETE"&&msg.version===16){
+ if(msg.type==="MVM_PIVOT_COMPLETE"&&msg.version===16&&at===4&&event.source===document.getElementById("pivotPreviewFrame")?.contentWindow){
   current.pivot={snapshots:msg.snapshots||{},completedAt:now(),completed:true};
-  pivotPilotReport=current.pivot;save();
+  pivotPilotReport=current.pivot;delete current.drafts.pivot;save();go(5);
  }
- if(msg.type==="MVM_SQL_COMPLETE"&&msg.version===16){
+ if(msg.type==="MVM_SQL_COMPLETE"&&msg.version===16&&at===5&&event.source===document.getElementById("sqlPreviewFrame")?.contentWindow){
   current.sql={completedAt:msg.completedAt||now(),code:String(msg.code||""),lastExecution:msg.lastExecution||null,executions:Number(msg.executions)||0};
-  save();if(at===5)go(6);
+  delete current.drafts.sql;save();if(at===5)go(6);
  }
- if(msg.type==="MVM_PYTHON_COMPLETE"&&msg.version===16){
+ if(msg.type==="MVM_PYTHON_COMPLETE"&&msg.version===16&&at===6&&event.source===document.getElementById("pythonPreviewFrame")?.contentWindow){
   current.python={completedAt:msg.completedAt||now(),code:String(msg.code||""),lastExecution:msg.lastExecution||null,executions:Number(msg.executions)||0,engineReady:!!msg.engineReady};
-  save();if(at===6)go(7);
+  delete current.drafts.python;save();if(at===6)go(7);
  }
 });
 function readPending(){
@@ -473,7 +502,7 @@ function readPending(){
   at=next;
  }
 }
-if(!current.finishedAt)readPending();save();
+if(!current.finishedAt&&!INVITE_CODE)readPending();save();
 render();tick();
 setInterval(tick,1000);
 function persistOnLeave(){sync();store(ACTIVE,current);}
