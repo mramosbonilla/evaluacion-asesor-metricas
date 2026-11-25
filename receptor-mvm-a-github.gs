@@ -277,12 +277,15 @@ function doPost(e){
           finalObject.finishedAt=new Date(session.deadline).toISOString();
           finalObject.finishReason="tiempo_agotado_ultimo_avance_servidor";
           finalObject.elapsedSeconds=4500;finalObject.overtime=false;
+          if(/^P0[0-5]$/.test(code))finalObject.pilot.feedback=obj.pilot.feedback||{};
           if(!finalObject.candidate.name.trim())finalObject.candidate.name="Sin nombre";
           mvmCheckPayload_(finalObject,code);
         }
         mvmAudit_(session,"FINAL_DELIVERY",t);
         finalObject.serverSession={...mvmPublicAudit_(session),payloadHash:mvmHash_(raw),receivedAt:new Date(t).toISOString()};
-        const encoded=Utilities.base64Encode(Utilities.newBlob(JSON.stringify(finalObject)).getBytes());
+        const finalBytes=Utilities.newBlob(JSON.stringify(finalObject)).getBytes();
+        if(finalBytes.length>MVM_MAX_BYTES)throw Error("Entrega demasiado grande");
+        const encoded=Utilities.base64Encode(finalBytes);
         const created=mvmFile_(token,repo,"PUT",path,{
           message:"MVM recepción "+code+" ("+attemptId+")",content:encoded});
         if(created.status!==201)throw Error("GitHub no confirmó escritura");
