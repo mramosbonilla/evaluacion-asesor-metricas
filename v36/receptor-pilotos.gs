@@ -208,6 +208,25 @@ function mvm36Telemetry_(input){
  }
  return out;
 }
+function mvm36Feedback_(answer){
+ const f=answer?.feedback||{},out={};
+ for(const k of ["device","clarity","navigation","technicalIssues","suggestions","integrityTests"]){const v=f[k];out[k]=typeof v==="string"?v.slice(0,4000):"";}
+ for(const k of ["clarity","navigation"])if(!/^[1-5]$/.test(out[k]))out[k]="";
+ return out;
+}
+function mvm36FeedbackView_(r,now){return {examId:r.state.examId,stage:"final",caseIndex:0,revision:r.state.revision,deadline:r.state.deadline,serverNow:now,draft:{feedback:r.feedback||{}},content:{readyToSubmit:true},expired:true};}
+function mvm36Report_(r,bank){
+ const s=r.state,closed=s.closed,code=r.invitationCode,person=closed.identification?.answer||{},a=closed.objective?.answer?.answers||[],objective=new Map(a.map(x=>[x.id,x.selected]));
+ const pivot=Object.fromEntries((closed.pivot?.answer?.exercises||[]).map(x=>[x.id,x]));
+ const sources={};let parent=null;
+ for(const tel of Object.values(r.telemetry||{}))for(const [name,v] of Object.entries(tel.sources||{})){if(name==="evaluation")parent=v;else sources[name]=v;}
+ if(parent)sources.evaluation=parent;
+ const sum=k=>Object.values(sources).reduce((n,x)=>n+(x[k]||0),0);
+ const counts={};for(const e of r.audit||[])counts[e.event]=(counts[e.event]||0)+1;
+ const alerts=[];for(const [c,k] of [["TAB_HIDDEN","visibilityHiddenCount"],["FOCUS_LOST","focusLossCount"],["PASTE_DETECTED","pasteAttempts"],["COPY_DETECTED","copyAttempts"]])if(sum(k))alerts.push({code:c,count:sum(k)});
+ if(!Object.keys(sources).length)alerts.push({code:"MONITORING_MISSING",count:1});
+ return {schema:"MVM_PILOT_16",assessment:"Asesor de Métricas · MVM V36",examId:bank.examId,bankRef:r.bankRef,attemptId:s.attemptId,candidate:{name:person.name||"Sin nombre",email:person.email||""},startedAt:new Date(s.startedAt).toISOString(),finishedAt:new Date(s.finishedAt).toISOString(),finishReason:s.reason,timeLimitSeconds:bank.durationSeconds,elapsedSeconds:Math.round((s.finishedAt-s.startedAt)/1000),pilot:{invitationCode:code,mode:"PRUEBA_DE_USABILIDAD",feedback:r.feedback||{}},knowledge:bank.objective.map(q=>{const v=objective.get(q.id);return {id:q.id,number:bank.objective.indexOf(q)+1,question:q.prompt,selected:Number.isInteger(v)?"ABCD"[v]:null,selectedText:Number.isInteger(v)?q.options[v]:null};}),openCases:bank.open.map((c,i)=>({id:c.id,number:i+1,title:c.title,prompt:c.prompt,response:closed["open_"+(i+1)]?.answer?.response||""})),practical:{excel:closed.excel?{formulas:closed.excel.answer.formulas,score:null}:null,pivot:closed.pivot?{snapshots:pivot}:null,sql:closed.sql?.answer||null,python:closed.python?.answer||null},monitoring:{enabled:true,source:"CLIENT_ADVISORY",pasteEvents:sum("pasteAttempts"),copyEvents:sum("copyAttempts"),tabHiddenCount:sum("visibilityHiddenCount"),windowFocusLossCount:sum("focusLossCount"),alerts,byStage:r.telemetry||{}},serverSession:{version:36,receivedAt:new Date(r.submittedAt).toISOString(),counts,events:r.audit||[],deadlineAt:new Date(s.deadline).toISOString()},review:{status:"PENDIENTE_DE_REVISION",objective:r.score?.objective||mvm36ObjectiveScore_(s,bank),note:"No confiar en notas de navegador; verificar fórmulas, pivotes y código con banco privado fijado."}};
+}
 function mvm36SandboxStep_(record,bank,identity,req,now,newAttempt){
  const action=req.action;
  if(!["claim","save","advance","finalize"].includes(action))throw Error("INVALID_ACTION");
@@ -222,7 +241,12 @@ function mvm36SandboxStep_(record,bank,identity,req,now,newAttempt){
  if(r.browserHash!==identity.browserHash)throw Error("OTHER_BROWSER");
  if(r.tabHash!==identity.tabHash&&r.leaseUntil>now)throw Error("CONCURRENT_TAB");
  if(action!=="claim"&&req.attemptId!==r.state.attemptId)throw Error("ATTEMPT_MISMATCH");
- if(r.state.finished)return {record:r,reply:{status:"ALREADY_SUBMITTED",attemptId:r.state.attemptId,receivedAt:r.state.receivedAt}};
+ if(r.submitted)return {record:r,reply:{status:"ALREADY_SUBMITTED",attemptId:r.state.attemptId,receivedAt:r.submittedAt}};
+ if(r.state.finished){
+  if(action==="finalize"){r.feedback=mvm36Feedback_(req.answer);r.submitted=true;r.submittedAt=now;r.audit.push({event:"FINAL_DELIVERY",at:now});return {record:r,reply:{status:"RECEIVED",attemptId:r.state.attemptId,receivedAt:now}};}
+  if(action!=="claim")throw Error("SESSION_CLOSED");
+  return {record:r,reply:{status:"FEEDBACK_REQUIRED",attemptId:r.state.attemptId,view:mvm36FeedbackView_(r,now)}};
+ }
  if(action==="claim"){
   const event=r.tabHash===identity.tabHash?"RESUMED":"TAB_CHANGED";
   r.tabHash=identity.tabHash;r.audit.push({event,at:now});
@@ -234,8 +258,9 @@ function mvm36SandboxStep_(record,bank,identity,req,now,newAttempt){
  if(now>=r.state.deadline||action==="finalize"){
   r.state=mvm36Finalize_(r.state,bank,now);
   r.score={objective:mvm36ObjectiveScore_(r.state,bank),practical:"PENDING_INDEPENDENT_REVIEW",open:"PENDING_INDEPENDENT_REVIEW"};
-  r.audit.push({event:"FINAL_DELIVERY",at:now});
-  return {record:r,reply:{status:"RECEIVED",attemptId:r.state.attemptId,receivedAt:r.state.receivedAt}};
+  if(action!=="finalize"||req.answer?.feedback===undefined){r.audit.push({event:"TIME_CLOSED",at:now});return {record:r,reply:{status:"FEEDBACK_REQUIRED",attemptId:r.state.attemptId,view:mvm36FeedbackView_(r,now)}};}
+  r.feedback=mvm36Feedback_(req.answer);r.submitted=true;r.submittedAt=now;r.audit.push({event:"FINAL_DELIVERY",at:now});
+  return {record:r,reply:{status:"RECEIVED",attemptId:r.state.attemptId,receivedAt:now}};
  }
  r.leaseUntil=now+120000;
  if(r.audit.length>150)r.audit=r.audit.slice(-150);
@@ -264,6 +289,11 @@ function mvm36SandboxAction_(params){
    result.record.invitationCode=identity.code;
    // Receipt only after durable server storage.
    if(JSON.stringify(prior)!==JSON.stringify(result.record))mvmWriteJson_(cfg,path,result.record,previous);
+   if(result.record.submitted){
+    const finalPath="entregas/2026/"+identity.code+".json",existing=mvmReadJson_(cfg,finalPath),report=mvm36Report_(result.record,bank);
+    if(existing){if(existing.value?.attemptId!==report.attemptId||existing.value?.bankRef!==report.bankRef)throw Error("LEGACY_SESSION_EXISTS");}
+    else mvmWriteJson_(cfg,finalPath,report,null);
+   }
    return mvmReceipt_({...base,ok:true,...result.reply});
   }finally{lock.releaseLock();}
  }catch(e){
