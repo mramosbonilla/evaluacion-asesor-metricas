@@ -69,7 +69,17 @@ function render(){
   answer={response:d.response||""};body.append(el("p","Caso "+(view.caseIndex+1)+" de 3"),el("h3",view.content.title),el("p",view.content.prompt));const t=el("textarea");t.id="caseResponse";t.value=answer.response;t.rows=12;t.oninput=()=>{answer.response=t.value;saveLocal()};body.append(t);
  }else if(tools.includes(s)){
   answer=null;frame=el("iframe");frame.className="v36-frame";frame.title=labels[stages.indexOf(s)];frame.src="./"+s+".html?embed=1&v=36";body.append(frame);
- }else if(s==="final"){body.append(el("p","Confirma la entrega final de tu evaluación."),button("Entregar evaluación",()=>transact("finalize",{})));return;}
+ }else if(s==="final"){
+  const f=localGet()?.answer?.feedback||d.feedback||{};
+  answer={feedback:{...f}};body.append(el("p","La evaluación está cerrada. Los comentarios no modifican tus respuestas ni la calificación."));
+  if(/^P0[2-5]$/.test(invitation.code)){
+   body.append(el("h3","Comentarios sobre la prueba"),el("p","Indica las pruebas que realizaste, incluyendo copia y pegado, uso de IA, salida y reingreso, y cualquier dificultad."));
+   for(const [k,label] of [["device","Dispositivo utilizado"],["clarity","Claridad de instrucciones (1–5)"],["navigation","Facilidad de navegación (1–5)"],["integrityTests","Pruebas de integridad realizadas"],["technicalIssues","Problemas técnicos"],["suggestions","Sugerencias"]]){
+    const l=el("label",label),x=el(k==="device"||k==="clarity"||k==="navigation"?"input":"textarea");x.value=f[k]||"";x.maxLength=4000;if(k==="clarity"||k==="navigation"){x.type="number";x.min="1";x.max="5";}x.oninput=()=>{answer.feedback[k]=x.value;saveLocal()};l.append(x);body.append(l);
+   }
+  }
+  body.append(button("Entregar evaluación",()=>transact("finalize",answer)));return;
+ }
  const controls=el("div",undefined,"actions");controls.append(button("Guardar avance",()=>transact("save",draftAnswer())));
  if(!tools.includes(s))controls.append(button("Confirmar y continuar",()=>{if(confirm("¿Cerrar esta etapa? No podrás regresar."))transact("advance",draftAnswer());}));
  controls.append(button("Salir",()=>{if(confirm("El reloj seguirá corriendo. ¿Guardar y salir?"))transact("save",draftAnswer(),true);}));
@@ -79,7 +89,7 @@ async function claim(){if(busy||complete)return;busy=true;status("Verificando se
 async function transact(action,a,exit=false){
  if(busy||!view||complete)return;
  busy=true;const current=view;const key=draftKey();status("Guardando en el servidor…");
- try{const r=await request(action,{attemptId,stage:current.stage,caseIndex:current.caseIndex,revision:current.revision,answer:a,monitor:telemetry()});if(action!=="save"||!r.view){if(key)try{localStorage.removeItem(key)}catch(e){};mon={};}fromView(r,action!=="save"||!r.view);dirty=false;status(complete?"Entrega confirmada":"Guardado en servidor");if(exit&&!complete){view=null;render();status("Avance guardado. Puedes cerrar esta ventana.");}}
+ try{const r=await request(action,{attemptId,stage:current.stage,caseIndex:current.caseIndex,revision:current.revision,answer:a,monitor:telemetry()});if(action!=="save"||!r.view){if(key&&(!r.view?.expired||current.stage!=="final"))try{localStorage.removeItem(key)}catch(e){};mon={};}fromView(r,action!=="save"||!r.view);dirty=false;status(complete?"Entrega confirmada":"Guardado en servidor");if(exit&&!complete){view=null;render();status("Avance guardado. Puedes cerrar esta ventana.");}}
  catch(e){status(String(e.message||e)+" · El avance local se conserva; reanuda para reconciliar la sesión.");}finally{busy=false;}
 }
 window.addEventListener("message",e=>{
@@ -88,7 +98,7 @@ window.addEventListener("message",e=>{
  if(d.type==="MVM36_SIM_COMPLETE"&&d.stage===view.stage)transact("advance",d.answer);
  if((d.type==="MVM_SQL_COMPLETE"&&view.stage==="sql")||(d.type==="MVM_PYTHON_COMPLETE"&&view.stage==="python"))transact("advance",{code:String(d.code||"")});
 });
-setInterval(()=>{if(!view||complete)return;const seconds=Math.max(0,Math.ceil((view.deadline-Date.now()-offset)/1000));$("timer").textContent=String(Math.floor(seconds/60)).padStart(2,"0")+":"+String(seconds%60).padStart(2,"0");if(seconds===0&&!busy)transact("finalize",{});else if(!busy&&view.stage!=="final"&&Date.now()-lastSave>=85000){transact("save",draftAnswer());}},1000);
+setInterval(()=>{if(!view||complete)return;const seconds=Math.max(0,Math.ceil((view.deadline-Date.now()-offset)/1000));$("timer").textContent=String(Math.floor(seconds/60)).padStart(2,"0")+":"+String(seconds%60).padStart(2,"0");if(seconds===0&&!busy&&!view.expired)transact("finalize",{});else if(!busy&&view.stage!=="final"&&Date.now()-lastSave>=85000){transact("save",draftAnswer());}},1000);
 window.addEventListener("beforeunload",e=>{if(view&&!complete){e.preventDefault();e.returnValue="";}});
 render();
 })();
