@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MVM · Evaluación SQL</title>
+<style>
+:root{font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#f2f6fa;color:#1b293a}
+*{box-sizing:border-box}body{margin:0}header{background:#173766;color:white;padding:18px clamp(18px,4vw,70px)}header h1{margin:3px 0;font-size:24px}header p{color:#d9e6fd;margin:5px 0}
+main{max-width:1180px;margin:20px auto;padding:0 16px}article{background:white;border:1px solid #d9e3ee;border-radius:12px;padding:20px;margin:13px 0;box-shadow:0 2px 6px #112c4a07}
+h2{font-size:19px;margin:0 0 10px}h3{font-size:15px;margin:13px 0 6px}p{line-height:1.5}.muted{color:#64748b}.note{background:#edf6fe;border-left:4px solid #3272bd;padding:12px;margin:12px 0;border-radius:5px}
+.btn{font:inherit;background:#1e63a5;color:white;border:0;border-radius:8px;padding:10px 15px;cursor:pointer;font-weight:650}
+.btn.secondary{background:#e7eef6;color:#204973}.btn:disabled{opacity:.55;cursor:wait}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}a{color:#2164a3}
+textarea{width:100%;min-height:184px;resize:vertical;border:1px solid #9aaec3;border-radius:8px;padding:14px;font:15px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace;background:#fbfdff;color:#1c2939;tab-size:2}
+pre{background:#15263b;color:#e9f1ff;border-radius:9px;white-space:pre-wrap;overflow:auto;padding:15px;line-height:1.45}
+table{border-collapse:collapse;width:100%;font-size:14px}th,td{border:1px solid #d8e3ed;padding:9px;text-align:left}th{background:#edf3f8}
+.scroll{max-height:360px;overflow:auto}#state{padding:10px 0;font-weight:600}#state[data-error]{color:#9e2a2a}#state[data-ready]{color:#14623c}
+.small{font-size:13px}@media(max-width:600px){article{padding:13px}header h1{font-size:20px}textarea{font-size:14px;min-height:200px}}
+</style>
+</head>
+<body>
+<header><h1>MVM · SQL · Laboratorio práctico</h1><p>Ejercicio práctico de consulta y análisis de datos</p></header>
+<main>
+<article><h2>Tu desafío</h2><div class="note"><strong>REGLA DE INTEGRIDAD:</strong> demuestra tus conocimientos sin utilizar IA ni fuentes externas para recibir, copiar y pegar, o transcribir respuestas. Incumplir esta regla constituye una falta a la integridad de la evaluación.</div>
+<p><strong>MVM produce, distribuye y vende libros</strong> a través de sus tiendas y canales de distribución. Analiza las ventas de títulos editoriales en tres sucursales. Debes preparar un resumen con las columnas <code>categoria</code>, <code>total_unidades</code> y <code>importe_total</code>. Agrupa por categoría, suma unidades e ingresos y ordena por ingresos descendentes.</p>
+<div class="note"><strong>Condiciones:</strong> utiliza las tablas <code>ventas</code> y <code>productos</code> y su relación <code>producto_id</code>. El valor de cada línea es <code>unidades * precio_unitario</code>. Puedes ejecutar tantas consultas como necesites.</div>
+<p class="muted small">Esto es un laboratorio para comprobar el funcionamiento. La consulta y su último resultado se incorporarán al archivo local de evaluación al pulsar «Terminar SQL». Quedarán registrados al finalizar el ejercicio.</p>
+<div class="row"><a href="./vista-previa.html?etapa=5&amp;v=21">Volver a la etapa SQL</a><span class="muted">·</span><a href="./excel-pivot.html">Tablas dinámicas</a><span class="muted">·</span><span class="muted">Al finalizar la práctica, regresarás a la evaluación para continuar a Python</span></div>
+</article>
+<article><h2>Tablas disponibles</h2>
+<div class="scroll"><table><thead><tr><th>Tabla</th><th>Campos</th><th>Descripción</th></tr></thead><tbody>
+<tr><td><code>productos</code></td><td><code>producto_id</code> INTEGER, <code>nombre</code> TEXT, <code>categoria</code> TEXT</td><td>Catálogo de títulos de libros</td></tr>
+<tr><td><code>ventas</code></td><td><code>venta_id</code> INTEGER, <code>fecha</code> TEXT, <code>tienda</code> TEXT, <code>producto_id</code> INTEGER, <code>unidades</code> INTEGER, <code>precio_unitario</code> REAL</td><td>Ventas de libros registradas para el ejercicio</td></tr>
+</tbody></table></div>
+</article>
+<article>
+<h2>Editor SQL</h2><p class="small">Consulta arriba las tablas disponibles y sus columnas; escribe tu consulta completa en el editor vacío. Ejecuta la consulta para ver el resultado antes de finalizar.</p>
+<label for="editor" class="small muted">Escribe SQL de SQLite. Ctrl + Enter o ⌘ + Enter ejecutan la consulta.</label>
+<textarea id="editor" spellcheck="false" aria-label="Editor SQL"></textarea>
+<div class="row"><button class="btn" id="run" disabled>Ejecutar consulta</button><button class="btn secondary" id="example">Limpiar editor</button><button class="btn secondary" id="reset">Restablecer datos</button><button class="btn" id="finishSQL" type="button">Terminar SQL y continuar a Python</button></div>
+<div id="state" role="status" aria-live="polite">Cargando SQLite…</div>
+<h3>Resultados de ejecución</h3>
+<div id="output" class="scroll" aria-live="polite"><p class="muted">Los resultados aparecerán aquí después de ejecutar la consulta.</p></div>
+</article>
+</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.13.0/sql-wasm.js"></script>
+<script>
+(()=>{"use strict";
+const $=id=>document.getElementById(id);
+if(new URLSearchParams(location.search).get("embed")==="1"){
+ for(const link of document.querySelectorAll('main article:first-of-type .row a'))link.hidden=true;
+}
+let SQL=null,db=null,lastExecution=null,runCount=0;
+const starter=$("editor").value;
+function status(message,error=false){$("state").textContent=message;$("state").toggleAttribute("data-error",error);$("state").toggleAttribute("data-ready",!error&&!!db);}
+function seed(){
+ if(db){db.close();}
+ db=new SQL.Database();
+ db.run("CREATE TABLE productos (producto_id INTEGER PRIMARY KEY, nombre TEXT, categoria TEXT NOT NULL);");
+ db.run("CREATE TABLE ventas (venta_id INTEGER PRIMARY KEY, fecha TEXT, tienda TEXT, producto_id INTEGER, unidades INTEGER, precio_unitario REAL, FOREIGN KEY(producto_id) REFERENCES productos(producto_id));");
+ const stage=window.parent.MVM36Stage?.get("sql");if(!stage)throw Error("Etapa SQL no autorizada");const ps=stage.products.map(r=>[r.producto_id,r.titulo,r.categoria]);const vs=stage.sales.map((r,i)=>[i+1,r.fecha,r.tienda,r.producto_id,r.unidades,r.precio_unitario]);
+  const ip=db.prepare("INSERT INTO productos VALUES (?, ?, ?)");for(const row of ps)ip.run(row);ip.free();
+ const iv=db.prepare("INSERT INTO ventas VALUES (?, ?, ?, ?, ?, ?)");for(const row of vs)iv.run(row);iv.free();
+ status("SQLite listo · "+ps.length+" títulos y "+vs.length+" ventas de libros.");
+}
+function cellText(t){const e=document.createElement("td");e.textContent=t===null?"NULL":String(t);return e;}
+function renderResults(sets){const out=$("output");out.replaceChildren();if(!sets.length){const p=document.createElement("p");p.textContent="Consulta ejecutada. No hay filas para mostrar (posible operación de modificación).";out.append(p);return;}
+ for(const data of sets){const wrap=document.createElement("div");wrap.className="scroll";const table=document.createElement("table");const head=document.createElement("thead"),tr=document.createElement("tr");for(const col of data.columns){const th=document.createElement("th");th.textContent=col;tr.append(th);}head.append(tr);table.append(head);
+ const tb=document.createElement("tbody");for(const row of data.values){const t=document.createElement("tr");for(const val of row)t.append(cellText(val));tb.append(t);}table.append(tb);wrap.append(table);out.append(wrap);
+ const p=document.createElement("p");p.className="muted small";p.textContent=data.values.length+" filas devueltas";out.append(p);}}
+function execute(){if(!db)return;try{const sql=$("editor").value.trim();if(!sql){status("Escribe una consulta para ejecutar.",true);return;}
+const begin=performance.now();const data=db.exec(sql);renderResults(data);runCount++;lastExecution={query:sql,success:true,results:data.slice(0,3).map(x=>({columns:x.columns,values:x.values.slice(0,100)})),rowsReturned:data.reduce((n,x)=>n+x.values.length,0),executionCount:runCount};status("Consulta ejecutada correctamente en "+Math.round(performance.now()-begin)+" ms.");}
+catch(e){lastExecution={query:$("editor").value,success:false,error:String(e.message||e),executionCount:++runCount};status("Error SQL: "+String(e.message||e),true);$("output").replaceChildren();}}
+$("run").onclick=execute;
+$("finishSQL").onclick=()=>{
+ const current=$("editor").value.trim();
+ if(!confirm(current?"¿Terminar la práctica de SQL? Se registrará tu consulta y el último resultado de ejecución. No podrás regresar a esta sección.":"Práctica incompleta: no has escrito una respuesta SQL. Esta actividad no recibirá puntuación. Si continúas, no podrás regresar a esta sección. ¿Seguro que deseas finalizar?"))return;
+ const report={type:"MVM_SQL_COMPLETE",version:16,completedAt:new Date().toISOString(),code:current,lastExecution:lastExecution&&lastExecution.query===current?lastExecution:null,executions:runCount};
+ if(new URLSearchParams(location.search).get("embed")==="1"&&window.parent!==window)window.parent.postMessage(report,location.origin);
+ else{try{localStorage.setItem("mvm-pilot-sql-pending",JSON.stringify(report));}catch(e){}location.href="./vista-previa.html?etapa=6&v=21";}
+};
+
+$("example").onclick=()=>{$("editor").value=starter;$("editor").focus();};
+$("reset").onclick=()=>{if(SQL){seed();lastExecution=null;$("output").textContent="Datos restablecidos. Ejecuta una consulta.";}}; 
+$("editor").addEventListener("keydown",e=>{if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)){e.preventDefault();execute();}});
+async function init(){if(typeof initSqlJs!=="function"){status("No se pudo descargar el motor SQLite. Revisa Internet y actualiza la página.",true);return;}
+ try{SQL=await initSqlJs({locateFile:file=>"https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.13.0/"+file});seed();$("run").disabled=false;}
+ catch(e){status("No se pudo iniciar SQLite: "+String(e.message||e),true);}}
+init();
+
+(function(){
+ if(window.parent===window)return;
+ const kind="sql",el=document.getElementById("editor");
+ let api;try{api=window.parent.MVMDraft;}catch(e){return;}if(!api)return;
+ const prev=api.get(kind);
+ if(prev&&typeof prev.code==="string"){el.value=prev.code;lastExecution=prev.lastExecution||null;runCount=Number(prev.runCount)||0;}
+ function persist(){api.put(kind,{code:el.value,lastExecution,runCount});}
+ el.addEventListener("input",persist);
+ document.addEventListener("click",()=>setTimeout(persist,0));
+ window.addEventListener("pagehide",persist);
+ setInterval(persist,1000);
+})();
+})();
+</script>
+<script src="./monitor.js?v=36"></script></body></html>
