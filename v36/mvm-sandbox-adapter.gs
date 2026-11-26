@@ -20,6 +20,24 @@ function mvm36SandboxAuth_(params,prop){
  if(code!=="T36"||!/^[a-f0-9]{64}$/.test(token)||!/^[a-f0-9]{64}$/.test(expected)||mvmHash_(token)!==expected)throw Error("INVALID_INVITATION");
  return mvmSessionIdentity_(params);
 }
+// Client telemetry is advisory. Only bounded numeric aggregates are retained.
+function mvm36Telemetry_(input){
+ if(!input||typeof input!=="object")return null;
+ const countKeys=["copyAttempts","pasteAttempts","dropAttempts","visibilityHiddenCount","hiddenMilliseconds","focusLossCount","focusLossMilliseconds"];
+ const fieldKeys=["typedCharacters","deletedCharacters","inputEvents","activeTypingMs","writingSpanMs","pausesOver5Seconds","pausesOver10Seconds","substantialRevisionCount","backspacePresses","deletePresses","longestUninterruptedCharacters","longestInterInputPauseMs"];
+ const norm=v=>Number.isFinite(v)&&v>=0?Math.min(Math.round(v),100000000):0;
+ const out={sources:{}};
+ for(const [source,s] of Object.entries(input).slice(0,6)){
+  if(!["evaluation","excel","pivot","sql","python"].includes(source)||!s||typeof s!=="object")continue;
+  const v={};for(const k of countKeys)v[k]=norm(s[k]);v.fields={};
+  for(const [key,f] of Object.entries(s.fields||{}).slice(0,100)){
+   if(!/^[a-zA-Z0-9_]{1,80}$/.test(key)||!f||typeof f!=="object")continue;
+   v.fields[key]=Object.fromEntries(fieldKeys.map(k=>[k,norm(f[k])]));
+  }
+  out.sources[source]=v;
+ }
+ return out;
+}
 function mvm36SandboxStep_(record,bank,identity,req,now,newAttempt){
  const action=req.action;
  if(!["claim","save","advance","finalize"].includes(action))throw Error("INVALID_ACTION");
@@ -40,6 +58,7 @@ function mvm36SandboxStep_(record,bank,identity,req,now,newAttempt){
   r.tabHash=identity.tabHash;r.audit.push({event,at:now});
  }else if(action!=="finalize"&&now<r.state.deadline){
   r.state=mvm36Apply_(r.state,bank,req,now);
+  if(req.monitor){const telemetry=mvm36Telemetry_(req.monitor);if(telemetry){r.telemetry=r.telemetry||{};const k=req.stage==="open"?"open_"+(req.caseIndex+1):req.stage;r.telemetry[k]=telemetry;}}
   r.audit.push({event:action==="advance"?"STAGE_CLOSED":"CHECKPOINT",stage:req.stage,caseIndex:req.caseIndex,revision:r.state.revision,at:now});
  }
  if(now>=r.state.deadline||action==="finalize"){
