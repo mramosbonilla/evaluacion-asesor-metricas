@@ -4,14 +4,14 @@ var caseIndex=0;
 "use strict";
 const $=id=>document.getElementById(id),cfg=window.MVM36_CONFIG||{},qs=new URLSearchParams(location.search);
 const invitation={code:qs.get("tester")||"",token:qs.get("token")||""};
-const allowed=cfg.enabled===true&&/^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(cfg.endpoint||"")&&invitation.code==="T36"&&/^[a-f0-9]{64}$/.test(invitation.token);
+const allowed=cfg.enabled===true&&/^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(cfg.endpoint||"")&&(invitation.code==="T36"||/^P0[2-5]$/.test(invitation.code))&&/^[a-f0-9]{64}$/.test(invitation.token);
 const stages=["identification","objective","excel","pivot","sql","python","open","final"];
 const labels=["Identificación","Preguntas de opción múltiple","Excel · fórmulas","Excel · tablas dinámicas","SQL","Python","Preguntas abiertas","Finalización"];
 const tools=["excel","pivot","sql","python"];
 let view=null,attemptId=null,offset=0,busy=false,complete=false,frame=null,answer=null,lease=null,exclusive=false,mon={},lastSave=0,dirty=false;
 function nonce(){return Array.from(crypto.getRandomValues(new Uint8Array(24)),b=>b.toString(16).padStart(2,"0")).join("");}
-function identity(){let b=localStorage.getItem("mvm36-test-browser");if(!/^[a-f0-9]{48}$/.test(b||"")){b=nonce();localStorage.setItem("mvm36-test-browser",b);}const store=exclusive?localStorage:sessionStorage,key="mvm36-test-tab";let t=store.getItem(key);if(!/^[a-f0-9]{48}$/.test(t||"")){t=nonce();store.setItem(key,t);}return {browser:b,tab:t};}
-function lock(){if(!navigator.locks?.request)return Promise.resolve(true);if(!lease)lease=new Promise(resolve=>{navigator.locks.request("mvm36-test",{ifAvailable:true},l=>{if(!l){lease=null;resolve(false);return;}exclusive=true;resolve(true);return new Promise(()=>{});}).catch(()=>{lease=null;resolve(false);});});return lease;}
+function identity(){let b=localStorage.getItem("mvm36-browser-"+invitation.code);if(!/^[a-f0-9]{48}$/.test(b||"")){b=nonce();localStorage.setItem("mvm36-browser-"+invitation.code,b);}const store=exclusive?localStorage:sessionStorage,key="mvm36-tab-"+invitation.code;let t=store.getItem(key);if(!/^[a-f0-9]{48}$/.test(t||"")){t=nonce();store.setItem(key,t);}return {browser:b,tab:t};}
+function lock(){if(!navigator.locks?.request)return Promise.resolve(true);if(!lease)lease=new Promise(resolve=>{navigator.locks.request("mvm36-"+invitation.code,{ifAvailable:true},l=>{if(!l){lease=null;resolve(false);return;}exclusive=true;resolve(true);return new Promise(()=>{});}).catch(()=>{lease=null;resolve(false);});});return lease;}
 function request(action,payload={}){
  return new Promise((resolve,reject)=>{
   if(!allowed){reject(Error("Entorno de ensayo no habilitado."));return;}
