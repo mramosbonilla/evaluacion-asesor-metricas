@@ -184,7 +184,7 @@ function onFinish(){
  }else if(!confirm("¿Confirmas que has terminado la práctica de Excel? No podrás regresar a esta sección."))return;
  if(window.parent===window||!window.parent.MVM36Stage?.get("excel"))return;
  const formulas=Object.fromEntries(Object.entries(cells).filter(([k,v])=>/^[H-K][1-9]\d*$/.test(k)&&!["I2","J2","I3","I4","I5","I7"].includes(k)).map(([k,v])=>[k,String(v)]));
- window.parent.postMessage({type:"MVM36_SIM_COMPLETE",stage:"excel",answer:{formulas}},location.origin);
+ window.parent.postMessage({type:"MVM36_SIM_COMPLETE",stage:"excel",answer:{formulas,rowOrder:Array.from({length:DATA.length-1},(_,i)=>String(cells["A"+(i+2)]))}},location.origin);
  byId("status").textContent="Enviando práctica al servidor…";
 }
 byId("finish").onclick=()=>onFinish();
