@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="es">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MVM · Evaluación Python</title>
+<style>
+:root{font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#f2f5fa;color:#1b283b}
+*{box-sizing:border-box}body{margin:0}header{background:#25305c;color:white;padding:18px clamp(18px,4vw,70px)}header h1{font-size:24px;margin:3px 0}header p{color:#e2e7ff;margin:6px 0}
+main{max-width:1150px;margin:20px auto;padding:0 16px}article{background:white;border:1px solid #dce4ec;border-radius:12px;padding:20px;margin:13px 0}
+h2{font-size:19px;margin:0 0 8px}p{line-height:1.5}.muted{color:#627186}
+.note{border-left:4px solid #6b58b6;background:#f2effc;padding:12px;border-radius:4px;margin:13px 0}
+button{font:inherit;background:#524eaa;color:white;border:0;border-radius:8px;padding:11px 15px;font-weight:650;cursor:pointer}
+button.secondary{background:#eeeefa;color:#35336b}button:disabled{opacity:.55;cursor:wait}
+.row{display:flex;gap:9px;align-items:center;flex-wrap:wrap}a{color:#3e4caa}
+textarea{width:100%;min-height:265px;border:1px solid #aeb4d0;border-radius:8px;font:14px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace;padding:14px;background:#fbfbff;color:#1b2737;tab-size:4;resize:vertical}
+pre{background:#142333;color:#e7f5ff;border-radius:8px;padding:16px;white-space:pre-wrap;overflow:auto;min-height:100px;font:13px/1.5 ui-monospace,Consolas,monospace}
+#status{padding:10px 0;font-weight:600}#status[data-error]{color:#a32f32}#status[data-ready]{color:#27694b}
+table{border-collapse:collapse;width:100%;font-size:14px}th,td{border:1px solid #dde3ed;text-align:left;padding:8px}th{background:#eef0fa}.scroll{overflow-x:auto}
+.small{font-size:13px}@media(max-width:600px){article{padding:13px}header h1{font-size:20px}}
+</style></head>
+<body>
+<header><h1>MVM · Python + pandas · Laboratorio práctico</h1><p>Ejercicio práctico de análisis con pandas</p></header>
+<main>
+<article>
+<h2>Tu desafío</h2><div class="note"><strong>REGLA DE INTEGRIDAD:</strong> resuelve personalmente el análisis sin utilizar IA ni fuentes externas para recibir, copiar y pegar, o transcribir respuestas. Incumplir esta regla constituye una falta a la integridad de la evaluación.</div>
+<p><strong>MVM produce, distribuye y vende libros.</strong> Para analizar las ventas de sus títulos editoriales, dispone del archivo <code>ventas_mvm.csv</code>. Usando <strong>pandas</strong>, crea una tabla agrupada por <code>categoria</code> que muestre el total de unidades y el importe total. Ordena las categorías de mayor a menor importe.</p>
+<div class="note"><strong>Pista técnica:</strong> el importe de cada registro se calcula como <code>unidades * precio_unitario</code>. Puedes utilizar <code>groupby</code>, <code>agg</code>, <code>sort_values</code> y <code>print</code> para mostrar el resultado. El responsable revisará tu solución posteriormente.</div>
+<div class="row"><a href="./vista-previa.html?etapa=6&amp;v=21">Volver a la etapa Python</a><span class="muted">·</span><span class="muted">Tras terminar Python continuarás a los tres casos abiertos</span><span class="muted">·</span><a href="./excel-pivot.html">Tablas dinámicas</a></div>
+<p class="muted small">La primera carga de Python y pandas descarga archivos grandes y requiere Internet. Al terminar, el código y la salida se conservarán al finalizar este ejercicio.</p>
+</article>
+<article><h2>Estructura de datos</h2><p>CSV de ejemplo de MVM disponible en el sistema de archivos temporal de Python como <code>ventas_mvm.csv</code> (datos de la etapa asignada).</p>
+<div class="scroll"><table><thead><tr><th>fecha</th><th>tienda</th><th>categoria</th><th>producto_id</th><th>unidades</th><th>precio_unitario</th></tr></thead>
+<tbody id="mvm36Sample"></tbody></table></div>
+</article>
+<article><h2>Editor Python</h2><p class="small">Consulta arriba la estructura y los registros de ventas_mvm.csv. Escribe desde cero el código necesario para leer el archivo, procesar los datos y mostrar el resultado.</p>
+<label for="code" class="muted small">El código se ejecuta con Pyodide. Usa Ctrl + Enter o ⌘ + Enter para ejecutar.</label>
+<textarea id="code" spellcheck="false" aria-label="Editor de Python"></textarea>
+<div class="row"><button id="run" disabled>Ejecutar Python</button><button id="restore" class="secondary">Limpiar editor</button><button id="reload" class="secondary" disabled>Restablecer archivo CSV</button><button id="finishPython">Terminar Python y continuar</button></div>
+<div id="status" role="status" aria-live="polite">Preparando motor Python…</div>
+<h2>Salida de Python</h2>
+<pre id="console" aria-live="polite">Esperando la inicialización del motor…</pre>
+</article>
+</main>
+<script>
+(()=>{"use strict";
+const $=id=>document.getElementById(id);
+if(new URLSearchParams(location.search).get("embed")==="1"){
+ for(const link of document.querySelectorAll('main article:first-of-type .row a'))link.hidden=true;
+}
+const version="https://cdn.jsdelivr.net/pyodide/v0.29.3/full/";
+const initial=$("code").value;
+const stage=window.parent.MVM36Stage?.get("python");if(!stage)throw Error("Etapa Python no autorizada");const keys=["fecha","tienda","categoria","producto_id","unidades","precio_unitario"];const csv=[keys.join(","),...stage.rows.map(r=>keys.map(k=>r[k]).join(","))].join("\n")+"\n";
+for(const row of stage.rows.slice(0,8)){const tr=document.createElement("tr");for(const k of keys){const td=document.createElement("td");td.textContent=String(row[k]);tr.append(td);} $("mvm36Sample").append(tr);}
+let py=null,running=false,output=[],lastExecution=null,runCount=0;
+function status(msg,err=false){$("status").textContent=msg;$("status").toggleAttribute("data-error",err);$("status").toggleAttribute("data-ready",!!py&&!err);}
+function outputText(t){output.push(t);$("console").textContent=output.join("\n");}
+function restoreFile(){if(!py)return;py.FS.writeFile("ventas_mvm.csv",csv);status("Archivo CSV de ventas de libros restablecido.");}
+$("restore").onclick=()=>{$("code").value=initial;status(py?"Código inicial restaurado.":"Preparando motor…");};
+$("reload").onclick=restoreFile;
+async function execute(){
+ if(!py||running)return;
+ running=true;$("run").disabled=true;output=[];
+ $("console").textContent="Ejecutando código…";
+ status("Ejecutando Python…");
+ try{
+  const submitted=$("code").value;const result=await py.runPythonAsync(submitted);lastExecution={code:submitted,success:true,executedAt:new Date().toISOString(),executionCount:++runCount};
+  if(!output.length&&result!==undefined&&result!==null){outputText(String(result));}
+  if(!output.length)$("console").textContent="Código ejecutado sin errores. No hubo salida de texto; usa print(...) para mostrar resultados.";
+  lastExecution.output=$("console").textContent.slice(0,30000);status("Código ejecutado correctamente.");
+ }catch(err){outputText("ERROR: "+String(err.message||err));lastExecution={code:$("code").value,success:false,error:String(err.message||err),output:$("console").textContent.slice(0,30000),executionCount:++runCount};status("La ejecución produjo un error; revisa la salida.",true);}
+ finally{running=false;$("run").disabled=false;}
+}
+$("run").onclick=execute;
+$("finishPython").onclick=()=>{
+ if(running){alert("La ejecución de Python aún está en curso. Intenta terminar cuando finalice.");return;}
+ const current=$("code").value;
+ if(!confirm(current.trim()?"¿Terminar la práctica de Python? Se registrará tu código y su última salida, si la ejecutaste. No podrás regresar a esta sección.":"Práctica incompleta: no has escrito una respuesta Python. Esta actividad no recibirá puntuación. Si continúas, no podrás regresar a esta sección. ¿Seguro que deseas finalizar?"))return;
+ const report={type:"MVM_PYTHON_COMPLETE",version:16,completedAt:new Date().toISOString(),code:current,lastExecution:lastExecution&&lastExecution.code===current?lastExecution:null,executions:runCount,engineReady:!!py};
+ if(new URLSearchParams(location.search).get("embed")==="1"&&window.parent!==window)window.parent.postMessage(report,location.origin);
+ else{try{localStorage.setItem("mvm-pilot-python-pending",JSON.stringify(report));}catch(e){}location.href="./vista-previa.html?etapa=7&v=21";}
+};
+
+$("code").addEventListener("keydown",e=>{
+ if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)){e.preventDefault();execute();}
+ if(e.key==="Tab"&&!e.ctrlKey&&!e.metaKey){e.preventDefault();const a=e.target,v=a.value,x=a.selectionStart,y=a.selectionEnd;a.value=v.slice(0,x)+"    "+v.slice(y);a.selectionStart=a.selectionEnd=x+4;}
+});
+function addScript(url){return new Promise((resolve,reject)=>{const s=document.createElement("script");s.src=url;s.onload=resolve;s.onerror=()=>reject(Error("No se pudo descargar el motor."));document.head.append(s);});}
+async function init(){try{
+ status("Descargando Python para navegador…");
+ await addScript(version+"pyodide.js");
+ if(typeof loadPyodide!=="function")throw Error("Pyodide no está disponible.");
+ py=await loadPyodide({indexURL:version});
+ status("Cargando pandas (la primera vez puede tardar)…");
+ await py.loadPackage("pandas");
+ py.setStdout({batched:s=>outputText(s)});
+ py.setStderr({batched:s=>outputText(s)});
+ restoreFile();
+ $("run").disabled=false;$("reload").disabled=false;$("console").textContent="Python y pandas listos. Pulsa «Ejecutar Python» para comenzar.";
+ status("Python y pandas listos. Los cálculos se ejecutan en este dispositivo.");
+ }catch(e){status("No se pudo inicializar Python: "+String(e.message||e)+". Revisa la conexión y recarga la página.",true);$("console").textContent="Error de inicialización. No se ha cobrado ningún servicio.";}
+}
+init();
+
+(function(){
+ if(window.parent===window)return;
+ const kind="python",el=document.getElementById("code");
+ let api;try{api=window.parent.MVMDraft;}catch(e){return;}if(!api)return;
+ const prev=api.get(kind);
+ if(prev&&typeof prev.code==="string"){el.value=prev.code;lastExecution=prev.lastExecution||null;runCount=Number(prev.runCount)||0;}
+ function persist(){api.put(kind,{code:el.value,lastExecution,runCount});}
+ el.addEventListener("input",persist);
+ document.addEventListener("click",()=>setTimeout(persist,0));
+ window.addEventListener("pagehide",persist);
+ setInterval(persist,1000);
+})();
+})();
+</script><script src="../mvm-monitor.js?v=23"></script></body></html>
