@@ -1,0 +1,21 @@
+# MVM V36 · Desarrollo aislado
+Estado: prototipo de núcleo y adaptador de ensayo, **no listo para publicar**.
+Fecha: 2026-11-26.
+Producción: main (V35). Respaldo: respaldo-v35-20261126.
+El formulario nuevo es común a todos los candidatos. No copiar contenido privado a este repositorio.
+
+## Componentes
+- `mvm-server-core.gs`: proyección de una sola etapa, versiones de guardado, cierre irreversible, plazo de servidor y puntuación objetiva independiente.
+- `mvm-sandbox-adapter.gs`: adaptador de ensayo T36 deshabilitado por defecto, banco privado fijado por commit, identidad de navegador, bloqueo y acuse posterior al guardado. No procesa las invitaciones P00–P15.
+- Banco: rama desarrollo-v36 del repositorio privado de resultados, ruta bancos/MVM-ASESOR-2026-V36.json. Contiene el contenido y las claves; no incluirlo en los activos públicos.
+
+## Antes de desplegar
+1. Revisar el banco y la rúbrica con el responsable; comprobar dificultad y resultados esperados.
+2. Adaptar interfaz y cuatro simuladores para cargar exclusivamente datos de la etapa que autoriza el servidor, sin conservar contenido futuro en HTML/JS; preservar borradores y accesibilidad.
+3. Crear calificación independiente de fórmulas, pivotes, SQL y Python. Nunca ejecutar código arbitrario en Apps Script; usar un entorno aislado o revisión controlada. Casos abiertos: rúbrica humana/asistida.
+4. Integrar monitoreo y trazabilidad de sesión y validar coherencia; los eventos de navegador no son pruebas de fraude.
+5. Preparar despliegue de ensayo separado y credencial de invitación T36 (no incluirla en código ni capturas). El adaptador aún no está conectado a doPost.
+6. Comprobar guardado real, recuperación, vencimiento, bloqueo, ausencia de contenido anticipado, envío, informes, cuotas y concurrencia. Mantener V35 activa hasta autorización expresa.
+7. Al terminar, adaptar el receptor para P06–P15 y el seguimiento de resultados a la versión definitiva. No alterar P00–P05 ni los resultados previos.
+
+Limitaciones: las pruebas de núcleo/adaptador son simuladas, no pruebas integrales de navegador ni Google. No se puede impedir fotografiar el contenido ya entregado, usar otro dispositivo o copiar identificadores locales por un atacante avanzado. La interfaz pública no deberá contener los nuevos enunciados; los enunciados antiguos permanecen expuestos en el historial. No se contrata ningún servicio.
