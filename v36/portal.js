@@ -37,7 +37,7 @@ window.MVM36Stage={get(kind){return view?.stage===kind?clone(view.content):null}
 function serverSimDraft(kind){
  const d=view?.draft;if(!d)return null;
  if(kind==="excel"){
-  const cells={};const base=[["ID","Canal","Título del libro","Zona","Órdenes","Estado","Mes"],...view.content.rows.map(r=>[r.id,r.canal,r.titulo,r.region,r.pedidos,r.estado,r.mes])];base.forEach((r,i)=>r.forEach((v,j)=>cells[String.fromCharCode(65+j)+(i+1)]=String(v)));Object.assign(cells,{"I2":"Indicador","J2":"Resultado","I3":"Órdenes creadas","I4":"Órdenes canceladas","I5":"Tasa cancelación","I7":"Brecha entre canales"},d.formulas||{});return {cells,selected:"A1"};
+  const cells={};const base=[["ID","Canal","Título del libro","Zona","Órdenes","Estado","Mes"],...(d.rowOrder?d.rowOrder.map(id=>view.content.rows.find(r=>String(r.id)===String(id))):view.content.rows).map(r=>[r.id,r.canal,r.titulo,r.region,r.pedidos,r.estado,r.mes])];base.forEach((r,i)=>r.forEach((v,j)=>cells[String.fromCharCode(65+j)+(i+1)]=String(v)));Object.assign(cells,{"I2":"Indicador","J2":"Resultado","I3":"Órdenes creadas","I4":"Órdenes canceladas","I5":"Tasa cancelación","I7":"Brecha entre canales"},d.formulas||{});return {cells,selected:"A1"};
  }
  if(kind==="pivot"){const snapshots=Object.fromEntries((d.exercises||[]).map(x=>[x.id,x]));return {snapshots,activeExercise:Math.min(3,Object.keys(snapshots).length+1),builder:{},answers:{},filterValues:[]};}
  return {code:d.code||"",text:d.code||"",value:d.code||""};
@@ -45,7 +45,7 @@ function serverSimDraft(kind){
 window.MVMDraft={get(kind){if(view?.stage!==kind)return null;return localGet()?.sim||serverSimDraft(kind)},put(kind,data){if(view?.stage!==kind||complete)return;const old=localGet()?.sim;if(JSON.stringify(old)===JSON.stringify(data))return;localPut({sim:data});dirty=true;}};
 function draftAnswer(){if(!view)return {};if(!tools.includes(view.stage))return answer||{};
  const d=localGet()?.sim||serverSimDraft(view.stage)||{};
- if(view.stage==="excel")return {formulas:Object.fromEntries(Object.entries(d.cells||{}).filter(([k])=>/^[H-K][1-9][0-9]*$/.test(k)&&!["I2","J2","I3","I4","I5","I7"].includes(k)).map(([k,v])=>[k,String(v)]))};
+ if(view.stage==="excel")return {rowOrder:Array.from({length:view.content.rows.length},(_,i)=>String(d.cells?.["A"+(i+2)]??view.content.rows[i].id)),formulas:Object.fromEntries(Object.entries(d.cells||{}).filter(([k])=>/^[H-K][1-9][0-9]*$/.test(k)&&!["I2","J2","I3","I4","I5","I7"].includes(k)).map(([k,v])=>[k,String(v)]))};
  if(view.stage==="pivot")return {exercises:Object.values(d.snapshots||{})};
  return {code:String(d.code??d.text??d.value??"")};
 }
@@ -98,7 +98,7 @@ window.addEventListener("message",e=>{
  if(d.type==="MVM36_SIM_COMPLETE"&&d.stage===view.stage)transact("advance",d.answer);
  if((d.type==="MVM_SQL_COMPLETE"&&view.stage==="sql")||(d.type==="MVM_PYTHON_COMPLETE"&&view.stage==="python"))transact("advance",{code:String(d.code||"")});
 });
-setInterval(()=>{if(!view||complete)return;const seconds=Math.max(0,Math.ceil((view.deadline-Date.now()-offset)/1000));$("timer").textContent=String(Math.floor(seconds/60)).padStart(2,"0")+":"+String(seconds%60).padStart(2,"0");if(seconds===0&&!busy&&!view.expired)transact("finalize",{});else if(!busy&&view.stage!=="final"&&Date.now()-lastSave>=85000){transact("save",draftAnswer());}},1000);
+setInterval(()=>{if(!view||complete)return;const seconds=Math.max(0,Math.ceil((view.deadline-(view.frozenAt??(Date.now()+offset)))/1000));$("timer").textContent=String(Math.floor(seconds/60)).padStart(2,"0")+":"+String(seconds%60).padStart(2,"0");if(seconds===0&&!busy&&!view.expired)transact("finalize",{});else if(!busy&&view.stage!=="final"&&Date.now()-lastSave>=85000){transact("save",draftAnswer());}},1000);
 window.addEventListener("beforeunload",e=>{if(view&&!complete){e.preventDefault();e.returnValue="";}});
 render();
 })();
