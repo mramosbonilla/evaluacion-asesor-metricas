@@ -508,7 +508,8 @@ function mvm36Feedback_(answer){
  for(const k of ["clarity","navigation"])if(!/^[1-5]$/.test(out[k]))out[k]="";
  return out;
 }
-function mvm36FeedbackView_(r,now){return {examId:r.state.examId,stage:"final",caseIndex:0,revision:r.state.revision,deadline:r.state.deadline,serverNow:now,frozenAt:r.state.finishedAt,draft:{feedback:r.feedback||{}},content:{readyToSubmit:true},expired:true};}
+function mvm36IsPilot_(code){return /^P0[0-5]$/.test(String(code||""));}
+function mvm36FeedbackView_(r,now){const allowFeedback=mvm36IsPilot_(r.invitationCode);return {examId:r.state.examId,stage:"final",caseIndex:0,revision:r.state.revision,deadline:r.state.deadline,serverNow:now,frozenAt:r.state.finishedAt,draft:{feedback:allowFeedback?r.feedback||{}:{}},content:{readyToSubmit:true,allowFeedback},expired:true};}
 function mvm36MonitoringSummary_(data){
  const parent=data.parent||{};
  const sources=[];
@@ -617,7 +618,7 @@ function mvm36SandboxStep_(record,bank,identity,req,now,newAttempt){
  if(action!=="claim"&&req.attemptId!==r.state.attemptId)throw Error("ATTEMPT_MISMATCH");
  if(r.submitted)return {record:r,reply:{status:"ALREADY_SUBMITTED",attemptId:r.state.attemptId,receivedAt:r.submittedAt}};
  if(r.state.finished){
-  if(action==="finalize"){r.feedback=mvm36Feedback_(req.answer);r.submitted=true;r.submittedAt=now;mvm36AuditEvent_(r,"FINAL_DELIVERY",now);return {record:r,reply:{status:"RECEIVED",attemptId:r.state.attemptId,receivedAt:now}};}
+  if(action==="finalize"){r.feedback=mvm36IsPilot_(r.invitationCode)?mvm36Feedback_(req.answer):{};r.submitted=true;r.submittedAt=now;mvm36AuditEvent_(r,"FINAL_DELIVERY",now);return {record:r,reply:{status:"RECEIVED",attemptId:r.state.attemptId,receivedAt:now}};}
   if(action!=="claim")throw Error("SESSION_CLOSED");
   return {record:r,reply:{status:"FEEDBACK_REQUIRED",attemptId:r.state.attemptId,view:mvm36FeedbackView_(r,now)}};
  }
@@ -633,7 +634,7 @@ function mvm36SandboxStep_(record,bank,identity,req,now,newAttempt){
   r.state=mvm36Finalize_(r.state,bank,now);
   r.score={objective:mvm36ObjectiveScore_(r.state,bank),practical:"PENDING_INDEPENDENT_REVIEW",open:"PENDING_INDEPENDENT_REVIEW"};
   if(action!=="finalize"||req.answer?.feedback===undefined){mvm36AuditEvent_(r,"TIME_CLOSED",now);return {record:r,reply:{status:"FEEDBACK_REQUIRED",attemptId:r.state.attemptId,view:mvm36FeedbackView_(r,now)}};}
-  r.feedback=mvm36Feedback_(req.answer);r.submitted=true;r.submittedAt=now;mvm36AuditEvent_(r,"FINAL_DELIVERY",now);
+  r.feedback=mvm36IsPilot_(r.invitationCode)?mvm36Feedback_(req.answer):{};r.submitted=true;r.submittedAt=now;mvm36AuditEvent_(r,"FINAL_DELIVERY",now);
   return {record:r,reply:{status:"RECEIVED",attemptId:r.state.attemptId,receivedAt:now}};
  }
  r.leaseUntil=now+120000;
