@@ -68,7 +68,7 @@ function render(){
  }else if(s==="open"){
   answer={response:d.response||""};body.append(el("p","Caso "+(view.caseIndex+1)+" de 3"),el("h3",view.content.title),el("p",view.content.prompt));const t=el("textarea");t.id="caseResponse";t.value=answer.response;t.rows=12;t.oninput=()=>{answer.response=t.value;saveLocal()};body.append(t);
  }else if(tools.includes(s)){
-  answer=null;frame=el("iframe");frame.className="v36-frame";frame.title=labels[stages.indexOf(s)];frame.src="./"+s+".html?embed=1&v=36.2";body.append(frame);
+  answer=null;frame=el("iframe");frame.className="v36-frame";frame.title=labels[stages.indexOf(s)];frame.src="./"+s+".html?embed=1&v="+(s==="excel"?"36.3":"36.2");body.append(frame);
  }else if(s==="final"){
   const f=localGet()?.answer?.feedback||d.feedback||{};
   answer={feedback:{...f}};body.append(el("p","La evaluación está cerrada. Los comentarios no modifican tus respuestas ni la calificación."));
