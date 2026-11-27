@@ -42,7 +42,7 @@ window.MVM36Stage={get(kind){return view?.stage===kind?clone(view.content):null}
 function serverSimDraft(kind){
  const d=view?.draft;if(!d)return null;
  if(kind==="excel"){
-  const cells={};const base=[["ID","Canal","Título del libro","Zona","Órdenes","Estado","Mes"],...(d.rowOrder?d.rowOrder.map(id=>view.content.rows.find(r=>String(r.id)===String(id))):view.content.rows).map(r=>[r.id,r.canal,r.titulo,r.region,r.pedidos,r.estado,r.mes])];base.forEach((r,i)=>r.forEach((v,j)=>cells[String.fromCharCode(65+j)+(i+1)]=String(v)));Object.assign(cells,{"I2":"Indicador","J2":"Resultado","I3":"Órdenes creadas","I4":"Órdenes canceladas","I5":"Tasa cancelación","I7":"Brecha entre canales"},d.formulas||{});return {cells,selected:d.layout?.selected||"A1",filterChannel:d.layout?.filterChannel||"Todos",cellFormats:d.layout?.cellFormats||{}};
+  const cells={};const base=[["ID","Canal","Título del libro","Zona","Órdenes","Estado","Mes"],...(d.rowOrder?d.rowOrder.map(id=>view.content.rows.find(r=>String(r.id)===String(id))):view.content.rows).map(r=>[r.id,r.canal,r.titulo,r.region,r.pedidos,r.estado,r.mes])];base.forEach((r,i)=>r.forEach((v,j)=>cells[String.fromCharCode(65+j)+(i+1)]=String(v)));Object.assign(cells,{"I2":"Indicador solicitado","J2":"Respuesta","I3":"Órdenes creadas","I4":"Órdenes canceladas","I5":"Tasa cancelación","I7":"Brecha entre canales"},d.formulas||{});return {cells,selected:d.layout?.selected||"A1",filterChannel:d.layout?.filterChannel||"Todos",cellFormats:d.layout?.cellFormats||{}};
  }
  if(kind==="pivot"){const snapshots=Object.fromEntries((d.exercises||[]).map(x=>[x.id,x])),w=d.working;return {snapshots,activeExercise:w?.id||Math.min(3,Object.keys(snapshots).length+1),builder:w?Object.fromEntries(["rowField","colField","valueField","aggregate","filterField","sortOrder"].map(k=>[k,w[k]])):{},answers:w?.answers||{},filterValues:w?.filterValues||[]};}
  return {code:d.code||"",lastExecution:d.lastExecution||null,runCount:d.executions||0,engineReady:d.engineReady===true};
@@ -78,11 +78,12 @@ function render(){
  }else if(s==="open"){
   answer={response:d.response||""};body.append(el("p","Caso "+(view.caseIndex+1)+" de 3"),el("h3",view.content.title),el("p",view.content.prompt));const t=el("textarea");t.id="caseResponse";t.value=answer.response;t.rows=12;t.oninput=()=>{answer.response=t.value;saveLocal()};body.append(t);
  }else if(tools.includes(s)){
-  answer=null;frame=el("iframe");frame.className="v36-frame";frame.title=labels[stages.indexOf(s)];frame.src="./"+s+".html?embed=1&v="+(s==="pivot"?"36.5":"36.4");body.append(frame);
+  answer=null;frame=el("iframe");frame.className="v36-frame";frame.title=labels[stages.indexOf(s)];frame.src="./"+s+".html?embed=1&v=36.6";body.append(frame);
  }else if(s==="final"){
   const f=localGet()?.answer?.feedback||d.feedback||{};
-  answer={feedback:{...f}};body.append(el("p","La evaluación está cerrada. Los comentarios no modifican tus respuestas ni la calificación."));
-  if(/^P0[02345]$/.test(invitation.code)){
+  const allowFeedback=view.content?.allowFeedback===true&&/^P0[02345]$/.test(invitation.code);
+  answer={feedback:allowFeedback?{...f}:{}};body.append(el("p",allowFeedback?"La evaluación está cerrada. Los comentarios no modifican tus respuestas ni la calificación.":"La evaluación está cerrada. Pulsa Entregar evaluación para enviar tus respuestas."));
+  if(allowFeedback){
    body.append(el("h3","Comentarios sobre la prueba"),el("p","Indica las pruebas que realizaste, incluyendo copia y pegado, uso de IA, salida y reingreso, y cualquier dificultad."));
    for(const [k,label] of [["device","Dispositivo utilizado"],["clarity","Claridad de instrucciones (1–5)"],["navigation","Facilidad de navegación (1–5)"],["integrityTests","Pruebas de integridad realizadas"],["technicalIssues","Problemas técnicos"],["suggestions","Sugerencias"]]){
     const l=el("label",label),x=el(k==="device"||k==="clarity"||k==="navigation"?"input":"textarea");x.value=f[k]||"";x.maxLength=4000;if(k==="clarity"||k==="navigation"){x.type="number";x.min="1";x.max="5";}x.oninput=()=>{answer.feedback[k]=x.value;saveLocal()};l.append(x);body.append(l);

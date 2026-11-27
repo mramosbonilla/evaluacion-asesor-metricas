@@ -463,12 +463,13 @@ function mvm36ObjectiveScore_(state,bank){
 }
 
 const MVM36_LEGACY_BANK_REF="a1dbca0bf960a123ec18bc0c6d8b8ccfab6120fc";
-const MVM36_BANK_REF="a57c00a04dc04e527e28a1b109a10d84a7c85b3a";
+const MVM365_BANK_REF="a57c00a04dc04e527e28a1b109a10d84a7c85b3a";
+const MVM36_BANK_REF="783aca7999fc347563843072576c220afa76bdf3";
 const MVM36_BANK_PATH="bancos/MVM-ASESOR-2026-V36.json";
 const MVM36_SANDBOX_PATH="v36-sandbox/";
 function mvm36BankFromPrivate_(cfg,ref=MVM36_BANK_REF){
- if(![MVM36_LEGACY_BANK_REF,MVM36_BANK_REF].includes(ref))throw Error("SESSION_BANK_MISMATCH");
- const path=ref===MVM36_LEGACY_BANK_REF?MVM36_BANK_PATH:"bancos/MVM-ASESOR-2026-V36.5.json";
+ if(![MVM36_LEGACY_BANK_REF,MVM365_BANK_REF,MVM36_BANK_REF].includes(ref))throw Error("SESSION_BANK_MISMATCH");
+ const path=ref===MVM36_LEGACY_BANK_REF?MVM36_BANK_PATH:ref===MVM365_BANK_REF?"bancos/MVM-ASESOR-2026-V36.5.json":"bancos/MVM-ASESOR-2026-V36.6.json";
  const url="https://api.github.com/repos/"+cfg.repo+"/contents/"+path.split("/").map(encodeURIComponent).join("/")+"?ref="+encodeURIComponent(ref);
  const r=mvmFetch_(url,{method:"get",headers:mvmApiHeaders_(cfg.token)});
  if(r.status!==200)throw Error("PRIVATE_BANK_UNAVAILABLE");
@@ -507,7 +508,8 @@ function mvm36Feedback_(answer){
  for(const k of ["clarity","navigation"])if(!/^[1-5]$/.test(out[k]))out[k]="";
  return out;
 }
-function mvm36FeedbackView_(r,now){return {examId:r.state.examId,stage:"final",caseIndex:0,revision:r.state.revision,deadline:r.state.deadline,serverNow:now,frozenAt:r.state.finishedAt,draft:{feedback:r.feedback||{}},content:{readyToSubmit:true},expired:true};}
+function mvm36IsPilot_(code){return /^P0[0-5]$/.test(String(code||""));}
+function mvm36FeedbackView_(r,now){const allowFeedback=mvm36IsPilot_(r.invitationCode);return {examId:r.state.examId,stage:"final",caseIndex:0,revision:r.state.revision,deadline:r.state.deadline,serverNow:now,frozenAt:r.state.finishedAt,draft:{feedback:allowFeedback?r.feedback||{}:{}},content:{readyToSubmit:true,allowFeedback},expired:true};}
 function mvm36MonitoringSummary_(data){
  const parent=data.parent||{};
  const sources=[];
@@ -610,13 +612,13 @@ function mvm36SandboxStep_(record,bank,identity,req,now,newAttempt){
   const fresh={schema:"MVM36_SANDBOX_1",bankRef:MVM36_BANK_REF,browserHash:identity.browserHash,tabHash:identity.tabHash,leaseUntil:now+120000,state,audit:[{event:"FIRST_START",at:now}],counts:{FIRST_START:1}};
   return {record:fresh,reply:{status:"CLAIMED",attemptId:state.attemptId,view:mvm36StageView_(state,bank,now)}};
  }
- if(![MVM36_LEGACY_BANK_REF,MVM36_BANK_REF].includes(r.bankRef))throw Error("SESSION_BANK_MISMATCH");
+ if(![MVM36_LEGACY_BANK_REF,MVM365_BANK_REF,MVM36_BANK_REF].includes(r.bankRef))throw Error("SESSION_BANK_MISMATCH");
  if(r.browserHash!==identity.browserHash){mvm36AuditEvent_(r,"OTHER_BROWSER_BLOCKED",now);return {record:r,reply:{ok:false,status:"OTHER_BROWSER"}};}
  if(r.tabHash!==identity.tabHash&&r.leaseUntil>now){mvm36AuditEvent_(r,"CONCURRENT_TAB_BLOCKED",now);return {record:r,reply:{ok:false,status:"CONCURRENT_TAB"}};}
  if(action!=="claim"&&req.attemptId!==r.state.attemptId)throw Error("ATTEMPT_MISMATCH");
  if(r.submitted)return {record:r,reply:{status:"ALREADY_SUBMITTED",attemptId:r.state.attemptId,receivedAt:r.submittedAt}};
  if(r.state.finished){
-  if(action==="finalize"){r.feedback=mvm36Feedback_(req.answer);r.submitted=true;r.submittedAt=now;mvm36AuditEvent_(r,"FINAL_DELIVERY",now);return {record:r,reply:{status:"RECEIVED",attemptId:r.state.attemptId,receivedAt:now}};}
+  if(action==="finalize"){r.feedback=mvm36IsPilot_(r.invitationCode)?mvm36Feedback_(req.answer):{};r.submitted=true;r.submittedAt=now;mvm36AuditEvent_(r,"FINAL_DELIVERY",now);return {record:r,reply:{status:"RECEIVED",attemptId:r.state.attemptId,receivedAt:now}};}
   if(action!=="claim")throw Error("SESSION_CLOSED");
   return {record:r,reply:{status:"FEEDBACK_REQUIRED",attemptId:r.state.attemptId,view:mvm36FeedbackView_(r,now)}};
  }
@@ -632,7 +634,7 @@ function mvm36SandboxStep_(record,bank,identity,req,now,newAttempt){
   r.state=mvm36Finalize_(r.state,bank,now);
   r.score={objective:mvm36ObjectiveScore_(r.state,bank),practical:"PENDING_INDEPENDENT_REVIEW",open:"PENDING_INDEPENDENT_REVIEW"};
   if(action!=="finalize"||req.answer?.feedback===undefined){mvm36AuditEvent_(r,"TIME_CLOSED",now);return {record:r,reply:{status:"FEEDBACK_REQUIRED",attemptId:r.state.attemptId,view:mvm36FeedbackView_(r,now)}};}
-  r.feedback=mvm36Feedback_(req.answer);r.submitted=true;r.submittedAt=now;mvm36AuditEvent_(r,"FINAL_DELIVERY",now);
+  r.feedback=mvm36IsPilot_(r.invitationCode)?mvm36Feedback_(req.answer):{};r.submitted=true;r.submittedAt=now;mvm36AuditEvent_(r,"FINAL_DELIVERY",now);
   return {record:r,reply:{status:"RECEIVED",attemptId:r.state.attemptId,receivedAt:now}};
  }
  r.leaseUntil=now+120000;
