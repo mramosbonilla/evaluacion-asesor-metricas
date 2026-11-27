@@ -27,7 +27,7 @@ function request(action,payload={}){
 function el(tag,text,cls){const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(cls)e.className=cls;return e;}
 function button(label,fn){const b=el("button",label,"btn");b.type="button";b.onclick=fn;return b;}
 function status(s){$("status").textContent=s;}
-function nav(){const current=view?stages.indexOf(view.stage):-1;$("nav").replaceChildren(el("div","Bienvenida","step"+(current<0&&!complete?" active":"")));labels.forEach((label,i)=>{$("nav").append(el("div",(i<current?"✓ ":"")+label,"step"+(i===current?" active":"")+(i>=2&&i<=5?" nav-tools":"")));});}
+function nav(){const current=complete?stages.length:view?stages.indexOf(view.stage):-1;const progress=$("progress");if(progress){const percent=complete?100:Math.round((current+1)/stages.length*100);progress.style.width=percent+"%";progress.parentElement?.setAttribute("aria-valuenow",String(percent));}$("nav").replaceChildren(el("div","Bienvenida","step"+(current<0&&!complete?" active":"")));labels.forEach((label,i)=>{$("nav").append(el("div",(i<current?"✓ ":"")+label,"step"+(i===current?" active":"")+(i>=2&&i<=5?" nav-tools":"")));});}
 function draftKey(){return attemptId&&view?"mvm36-draft-"+attemptId+"-"+view.stage+"-"+view.caseIndex:null;}
 function localGet(){const k=draftKey();try{return k?JSON.parse(localStorage.getItem(k)||"null"):null}catch(e){return null}}
 function localPut(v){const k=draftKey();if(k)try{localStorage.setItem(k,JSON.stringify(v));}catch(e){status("No se pudo guardar la copia local.");}}
