@@ -224,7 +224,7 @@ function snapshot(){
  return out;
 }
 function restore(x){
- if(!PARENT||!x||x.schema!=="MVM_MONITOR_1"||x.source!=="evaluation")return;
+ if(!x||x.schema!=="MVM_MONITOR_1"||x.source!==SOURCE)return;
  state=JSON.parse(JSON.stringify(x));state.sessionId=sessionId;
  for(const f of Object.values(state.fields||{})){
   f._lastInputAt=null;f.typingAfterDeletion=false;f.currentUninterruptedCharacters=0;
@@ -251,6 +251,6 @@ if(!PARENT&&EMBEDDED){
  },true);
  window.addEventListener("pagehide",()=>sendToParent());
  document.addEventListener("visibilitychange",()=>{if(document.hidden)sendToParent();});
- if(parentConsent())start();
+ if(parentConsent()){try{const old=window.parent.MVM36Monitoring?.get(SOURCE);if(old)restore(old);}catch(e){}start();}
 }
 })();
