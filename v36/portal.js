@@ -91,15 +91,23 @@ function render(){
   body.append(button("Entregar evaluación",()=>transact("finalize",answer)));return;
  }
  const controls=el("div",undefined,"actions");controls.append(button("Guardar avance",()=>transact("save",draftAnswer())));
- if(s==="open"&&view.openNavigation){const ix=view.caseIndex,attempt=attemptId;const valid=()=>!busy&&view?.stage==="open"&&view.caseIndex===ix&&attemptId===attempt&&Date.now()>=caseClickAfter;const prev=button("← Caso anterior",()=>{if(valid())transact("navigate",draftAnswer(),false,ix-1);});prev.disabled=ix===0;controls.append(prev,button(ix<2?"Guardar y continuar al siguiente caso →":"Cerrar los tres casos y continuar →",()=>{if(!valid())return;if(ix<2)transact("navigate",draftAnswer(),false,ix+1);else if(confirm("¿Cerrar los tres casos? Después no podrás volver a editarlos."))transact("advance",draftAnswer());}));caseClickAfter=Date.now()+800;}else if(!tools.includes(s)&&s!=="objective")controls.append(button(s==="open"?"Cerrar caso y continuar →":"Continuar a preguntas de opción múltiple →",()=>{if(Date.now()<caseClickAfter&&s==="open")return;if(confirm("¿Cerrar esta etapa? No podrás regresar."))transact("advance",draftAnswer());}));if(s==="open"&&!view.openNavigation)caseClickAfter=Date.now()+800;
+ if(s==="open"){
+ const ix=view.caseIndex,attempt=attemptId;
+ const valid=()=>!busy&&view?.stage==="open"&&view.caseIndex===ix&&attemptId===attempt&&Date.now()>=caseClickAfter;
+ const next=button("Guardar y pasar a la siguiente pregunta →",()=>{if(!valid()||!answer.response.trim())return;if(confirm("¿Guardar definitivamente la respuesta del caso "+(ix+1)+"? No podrás regresar a este caso."))transact("advance",draftAnswer());});
+ if(ix===2)next.textContent="Guardar y finalizar preguntas abiertas →";
+ const skip=button("Omitir este caso sin responder",()=>{if(!valid()||answer.response.trim())return;if(confirm("El caso "+(ix+1)+" quedará SIN RESPUESTA. ¿Confirmas que deseas omitirlo definitivamente?"))transact("advance",draftAnswer());});
+ function updateCaseButtons(){const answered=!!answer.response.trim();next.disabled=busy||!answered;skip.disabled=busy||answered;skip.hidden=answered;}
+ controls.append(next,skip);$("caseResponse").addEventListener("input",updateCaseButtons);updateCaseButtons();caseClickAfter=Date.now()+1000;
+ }else if(!tools.includes(s)&&s!=="objective")controls.append(button("Continuar a preguntas de opción múltiple →",()=>{if(confirm("¿Cerrar esta etapa? No podrás regresar."))transact("advance",draftAnswer());}));
  controls.append(button("Salir",()=>{if(confirm("El reloj seguirá corriendo. ¿Guardar y salir?"))transact("save",draftAnswer(),true);}));
  body.append(controls);
 }
 async function claim(){if(busy||complete)return;busy=true;status("Verificando sesión…");try{if(!await lock())throw Error("Otra pestaña tiene abierta la evaluación.");const r=await request("claim");window.__MVMMonitoringConsentGranted=true;window.MVMInteractionMonitor?.start?.();const resumed=r.status==="RESUMED"||r.status==="FEEDBACK_REQUIRED"||!!r.view&&(r.view.revision>0||r.view.deadline-r.view.serverNow<4490000);fromView(r);status(complete?"Entrega confirmada":resumed?"Evaluación retomada · avance recuperado":"Sesión activa");if(resumed&&!complete){const notice=el("div","Has retomado tu evaluación. Se recuperó el último avance y el tiempo restante.","notice");notice.setAttribute("role","status");$("body").prepend(notice);}}catch(e){status(String(e.message||e));}finally{busy=false;}}
-async function transact(action,a,exit=false,targetCase=null){
+async function transact(action,a,exit=false){
  if(!view||complete)return;if(busy){status("Guardado anterior en curso. Reintenta al recibir confirmación.");return;}
  busy=true;transitionButtons(true);const current=view;const key=draftKey();status("Guardando en el servidor…");
- try{const r=await request(action,{attemptId,stage:current.stage,caseIndex:current.caseIndex,revision:current.revision,answer:a,monitor:telemetry(),...(action==="navigate"?{targetCase}:{})});if(action!=="save"||!r.view){if(key&&(!r.view?.expired||current.stage!=="final"))try{localStorage.removeItem(key)}catch(e){};mon={};}fromView(r,action!=="save"||!r.view||r.view.stage!==current.stage||r.view.caseIndex!==current.caseIndex);dirty=false;status(complete?"Entrega confirmada":"Guardado en servidor");if(exit&&!complete&&view?.stage!=="final"){view=null;render();status("Avance guardado. Puedes cerrar esta ventana.");}}
+ try{const r=await request(action,{attemptId,stage:current.stage,caseIndex:current.caseIndex,revision:current.revision,answer:a,monitor:telemetry()});if(action!=="save"||!r.view){if(key&&(!r.view?.expired||current.stage!=="final"))try{localStorage.removeItem(key)}catch(e){};mon={};}fromView(r,action!=="save"||!r.view||r.view.stage!==current.stage||r.view.caseIndex!==current.caseIndex);dirty=false;status(complete?"Entrega confirmada":"Guardado en servidor");if(exit&&!complete&&view?.stage!=="final"){view=null;render();status("Avance guardado. Puedes cerrar esta ventana.");}}
  catch(e){status(String(e.message||e)+" · El avance local se conserva; reanuda para reconciliar la sesión.");}finally{busy=false;transitionButtons(false);}
 }
 window.addEventListener("message",e=>{
