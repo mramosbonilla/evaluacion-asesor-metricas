@@ -463,12 +463,13 @@ function mvm36ObjectiveScore_(state,bank){
 }
 
 const MVM36_LEGACY_BANK_REF="a1dbca0bf960a123ec18bc0c6d8b8ccfab6120fc";
-const MVM36_BANK_REF="a57c00a04dc04e527e28a1b109a10d84a7c85b3a";
+const MVM365_BANK_REF="a57c00a04dc04e527e28a1b109a10d84a7c85b3a";
+const MVM36_BANK_REF="783aca7999fc347563843072576c220afa76bdf3";
 const MVM36_BANK_PATH="bancos/MVM-ASESOR-2026-V36.json";
 const MVM36_SANDBOX_PATH="v36-sandbox/";
 function mvm36BankFromPrivate_(cfg,ref=MVM36_BANK_REF){
- if(![MVM36_LEGACY_BANK_REF,MVM36_BANK_REF].includes(ref))throw Error("SESSION_BANK_MISMATCH");
- const path=ref===MVM36_LEGACY_BANK_REF?MVM36_BANK_PATH:"bancos/MVM-ASESOR-2026-V36.5.json";
+ if(![MVM36_LEGACY_BANK_REF,MVM365_BANK_REF,MVM36_BANK_REF].includes(ref))throw Error("SESSION_BANK_MISMATCH");
+ const path=ref===MVM36_LEGACY_BANK_REF?MVM36_BANK_PATH:ref===MVM365_BANK_REF?"bancos/MVM-ASESOR-2026-V36.5.json":"bancos/MVM-ASESOR-2026-V36.6.json";
  const url="https://api.github.com/repos/"+cfg.repo+"/contents/"+path.split("/").map(encodeURIComponent).join("/")+"?ref="+encodeURIComponent(ref);
  const r=mvmFetch_(url,{method:"get",headers:mvmApiHeaders_(cfg.token)});
  if(r.status!==200)throw Error("PRIVATE_BANK_UNAVAILABLE");
@@ -610,7 +611,7 @@ function mvm36SandboxStep_(record,bank,identity,req,now,newAttempt){
   const fresh={schema:"MVM36_SANDBOX_1",bankRef:MVM36_BANK_REF,browserHash:identity.browserHash,tabHash:identity.tabHash,leaseUntil:now+120000,state,audit:[{event:"FIRST_START",at:now}],counts:{FIRST_START:1}};
   return {record:fresh,reply:{status:"CLAIMED",attemptId:state.attemptId,view:mvm36StageView_(state,bank,now)}};
  }
- if(![MVM36_LEGACY_BANK_REF,MVM36_BANK_REF].includes(r.bankRef))throw Error("SESSION_BANK_MISMATCH");
+ if(![MVM36_LEGACY_BANK_REF,MVM365_BANK_REF,MVM36_BANK_REF].includes(r.bankRef))throw Error("SESSION_BANK_MISMATCH");
  if(r.browserHash!==identity.browserHash){mvm36AuditEvent_(r,"OTHER_BROWSER_BLOCKED",now);return {record:r,reply:{ok:false,status:"OTHER_BROWSER"}};}
  if(r.tabHash!==identity.tabHash&&r.leaseUntil>now){mvm36AuditEvent_(r,"CONCURRENT_TAB_BLOCKED",now);return {record:r,reply:{ok:false,status:"CONCURRENT_TAB"}};}
  if(action!=="claim"&&req.attemptId!==r.state.attemptId)throw Error("ATTEMPT_MISMATCH");
