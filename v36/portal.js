@@ -97,7 +97,7 @@ function render(){
  const next=button("Guardar y pasar a la siguiente pregunta →",()=>{if(!valid()||!answer.response.trim())return;if(confirm("¿Guardar definitivamente la respuesta del caso "+(ix+1)+"? No podrás regresar a este caso."))transact("advance",draftAnswer());});
  if(ix===2)next.textContent="Guardar y finalizar preguntas abiertas →";
  const skip=button("Omitir este caso sin responder",()=>{if(!valid()||answer.response.trim())return;if(confirm("El caso "+(ix+1)+" quedará SIN RESPUESTA. ¿Confirmas que deseas omitirlo definitivamente?"))transact("advance",draftAnswer());});
- function updateCaseButtons(){const answered=!!answer.response.trim();next.disabled=busy||!answered;skip.disabled=busy||answered;skip.hidden=answered;}
+ function updateCaseButtons(){const answered=!!answer.response.trim();next.disabled=!answered;skip.disabled=answered;skip.hidden=answered;}
  controls.append(next,skip);$("caseResponse").addEventListener("input",updateCaseButtons);updateCaseButtons();caseClickAfter=Date.now()+1000;
  }else if(!tools.includes(s)&&s!=="objective")controls.append(button("Continuar a preguntas de opción múltiple →",()=>{if(confirm("¿Cerrar esta etapa? No podrás regresar."))transact("advance",draftAnswer());}));
  controls.append(button("Salir",()=>{if(confirm("El reloj seguirá corriendo. ¿Guardar y salir?"))transact("save",draftAnswer(),true);}));
