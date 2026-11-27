@@ -4,7 +4,7 @@ var caseIndex=0;
 "use strict";
 const $=id=>document.getElementById(id),cfg=window.MVM36_CONFIG||{},qs=new URLSearchParams(location.search);
 const invitation={code:qs.get("tester")||"",token:qs.get("token")||""};
-const allowed=cfg.enabled===true&&/^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(cfg.endpoint||"")&&(invitation.code==="T36"||/^P0[2-5]$/.test(invitation.code))&&/^[a-f0-9]{64}$/.test(invitation.token);
+const allowed=cfg.enabled===true&&/^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(cfg.endpoint||"")&&(/^P0[02345]$/.test(invitation.code))&&/^[a-f0-9]{64}$/.test(invitation.token);
 const stages=["identification","objective","excel","pivot","sql","python","open","final"];
 const labels=["Identificación","Preguntas de opción múltiple","Excel · fórmulas","Excel · tablas dinámicas","SQL","Python","Preguntas abiertas","Finalización"];
 const tools=["excel","pivot","sql","python"];
@@ -76,7 +76,7 @@ function render(){
  }else if(s==="final"){
   const f=localGet()?.answer?.feedback||d.feedback||{};
   answer={feedback:{...f}};body.append(el("p","La evaluación está cerrada. Los comentarios no modifican tus respuestas ni la calificación."));
-  if(/^P0[2-5]$/.test(invitation.code)){
+  if(/^P0[02345]$/.test(invitation.code)){
    body.append(el("h3","Comentarios sobre la prueba"),el("p","Indica las pruebas que realizaste, incluyendo copia y pegado, uso de IA, salida y reingreso, y cualquier dificultad."));
    for(const [k,label] of [["device","Dispositivo utilizado"],["clarity","Claridad de instrucciones (1–5)"],["navigation","Facilidad de navegación (1–5)"],["integrityTests","Pruebas de integridad realizadas"],["technicalIssues","Problemas técnicos"],["suggestions","Sugerencias"]]){
     const l=el("label",label),x=el(k==="device"||k==="clarity"||k==="navigation"?"input":"textarea");x.value=f[k]||"";x.maxLength=4000;if(k==="clarity"||k==="navigation"){x.type="number";x.min="1";x.max="5";}x.oninput=()=>{answer.feedback[k]=x.value;saveLocal()};l.append(x);body.append(l);
