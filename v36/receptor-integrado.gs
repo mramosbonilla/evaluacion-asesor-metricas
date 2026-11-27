@@ -392,7 +392,7 @@ function mvm36StageView_(state,bank,now){
   case "pivot":v.content={rows:p.pivot.rows,tasks:p.pivot.tasks.map(q=>({id:q.id,prompt:q.prompt}))};break;
   case "sql":v.content={products:p.sql.products,sales:p.sql.sales,prompt:p.sql.prompt};break;
   case "python":v.content={rows:p.python.rows,prompt:p.python.prompt};break;
-  case "open":{const c=bank.open[state.caseIndex];v.content={id:c.id,title:c.title,prompt:c.prompt};v.openNavigation=true;break;}
+  case "open":{const c=bank.open[state.caseIndex];v.content={id:c.id,title:c.title,prompt:c.prompt};break;}
   case "final":v.content={readyToSubmit:true};break;
   default:mvm36Fail_("INVALID_STAGE");
  }
@@ -437,19 +437,14 @@ function mvm36Apply_(state,bank,request,now){
  mvm36Guard_(state,bank,now);mvm36Obj_(request);
  const stage=MVM36_STAGES[state.stage];
  if(request.stage!==stage||request.caseIndex!==state.caseIndex||request.revision!==state.revision)mvm36Fail_("STALE_OR_UNAUTHORIZED_STAGE");
- if(!["save","advance","navigate"].includes(request.action))mvm36Fail_("INVALID_ACTION");
+ if(!["save","advance"].includes(request.action))mvm36Fail_("INVALID_ACTION");
  if(stage==="final")mvm36Fail_("USE_FINALIZE");
- if(request.action==="navigate"&&(stage!=="open"||!Number.isInteger(request.targetCase)||request.targetCase<0||request.targetCase>2||Math.abs(request.targetCase-state.caseIndex)!==1))mvm36Fail_("STALE_OR_UNAUTHORIZED_STAGE");
- const answer=mvm36ValidateAnswer_(stage,state.caseIndex,bank,request.answer,request.action==="save"||request.action==="navigate");
+ const answer=mvm36ValidateAnswer_(stage,state.caseIndex,bank,request.answer,request.action==="save");
  const next=mvm36Copy_(state);next.revision++;next.updatedAt=now;
  if(request.action==="save"){next.draft=answer;return next;}
  const key=stage==="open"?"open_"+(state.caseIndex+1):stage;
- if(stage==="open"&&(request.action==="navigate"||state.caseIndex<2)){
- next.closed[key]={answer,closedAt:now,revision:next.revision,partial:true};next.caseIndex=request.action==="navigate"?request.targetCase:state.caseIndex+1;next.draft=mvm36Copy_(next.closed["open_"+(next.caseIndex+1)]?.answer||null);return next;
- }
- if(stage!=="open"&&Object.prototype.hasOwnProperty.call(next.closed,key))mvm36Fail_("ALREADY_CLOSED");
+ if(Object.prototype.hasOwnProperty.call(next.closed,key))mvm36Fail_("ALREADY_CLOSED");
  next.closed[key]={answer,closedAt:now,revision:next.revision};next.draft=null;
- if(stage==="open")for(let i=1;i<=3;i++){const k="open_"+i;if(next.closed[k])delete next.closed[k].partial;}
  if(stage==="open"&&state.caseIndex<2)next.caseIndex++;else{next.stage++;next.caseIndex=0;}
  return next;
 }
@@ -458,7 +453,7 @@ function mvm36Finalize_(state,bank,now){
  if(state.examId!==bank.examId)mvm36Fail_("SESSION_BANK_MISMATCH");
  if(now<state.deadline&&MVM36_STAGES[state.stage]!=="final")mvm36Fail_("NOT_AT_FINAL_STAGE");
  const next=mvm36Copy_(state);next.finished=true;next.finishedAt=Math.min(now,state.deadline);next.receivedAt=now;next.reason=now>=state.deadline?"time_expired":"manual";
- if(next.draft){const k=MVM36_STAGES[next.stage]==="open"?"open_"+(next.caseIndex+1):MVM36_STAGES[next.stage];if(!next.closed[k]||MVM36_STAGES[next.stage]==="open")next.closed[k]={answer:next.draft,closedAt:next.finishedAt,revision:next.revision,partial:true};}
+ if(next.draft){const k=MVM36_STAGES[next.stage]==="open"?"open_"+(next.caseIndex+1):MVM36_STAGES[next.stage];if(!next.closed[k])next.closed[k]={answer:next.draft,closedAt:next.finishedAt,revision:next.revision,partial:true};}
  next.draft=null;next.revision++;return next;
 }
 function mvm36ObjectiveScore_(state,bank){
@@ -607,7 +602,7 @@ function mvm36Report_(r,bank){
 }
 function mvm36SandboxStep_(record,bank,identity,req,now,newAttempt){
  const action=req.action;
- if(!["claim","save","advance","navigate","finalize"].includes(action))throw Error("INVALID_ACTION");
+ if(!["claim","save","advance","finalize"].includes(action))throw Error("INVALID_ACTION");
  const r=record?mvm36Copy_(record):null;
  if(!r&&action!=="claim")throw Error("CLAIM_REQUIRED");
  if(!r){
@@ -631,7 +626,7 @@ function mvm36SandboxStep_(record,bank,identity,req,now,newAttempt){
  }else if(action!=="finalize"&&now<r.state.deadline){
   r.state=mvm36Apply_(r.state,bank,req,now);
   if(req.monitor){const telemetry=mvm36Telemetry_(req.monitor);if(telemetry){r.telemetry=r.telemetry||{};const k=req.stage==="open"?"open_"+(req.caseIndex+1):req.stage;r.telemetry[k]=telemetry;}}
-  mvm36AuditEvent_(r,action==="navigate"?"CASE_NAVIGATION":action==="advance"?"STAGE_CLOSED":"CHECKPOINT",now,{stage:req.stage,caseIndex:req.caseIndex,revision:r.state.revision});
+  mvm36AuditEvent_(r,action==="advance"?"STAGE_CLOSED":"CHECKPOINT",now,{stage:req.stage,caseIndex:req.caseIndex,revision:r.state.revision});
  }
  if(now>=r.state.deadline||action==="finalize"||MVM36_STAGES[r.state.stage]==="final"){
   r.state=mvm36Finalize_(r.state,bank,now);
@@ -687,7 +682,7 @@ function mvm36SandboxAction_(params){
 
 function mvm36EstadoMigracion(){const prop=PropertiesService.getScriptProperties();const result={};for(const code of ["P02","P03","P04","P05"])result[code]=prop.getProperty("MVM_SESSION_"+code)?"SESION_V35_EXISTENTE":"SIN_SESION_V35";console.log(JSON.stringify(result));return result;}
 
-function doPost(e){const p=e&&e.parameter||{};if(/^v36_(claim|save|advance|navigate|finalize)$/.test(String(p.action||"")))return mvm36SandboxAction_(p);return mvm35DoPost_(e);}
+function doPost(e){const p=e&&e.parameter||{};if(/^v36_(claim|save|advance|finalize)$/.test(String(p.action||"")))return mvm36SandboxAction_(p);return mvm35DoPost_(e);}
 function mvm36ActivarPilotos(){const prop=PropertiesService.getScriptProperties(),lock=LockService.getScriptLock();lock.waitLock(25000);try{const cfg=mvmPrivateConfig_(prop);mvm36BankFromPrivate_(cfg);const results={};for(const code of ["P02","P03","P04","P05"]){if(prop.getProperty("MVM_SESSION_"+code)||mvmReadJson_(cfg,"entregas/2026/"+code+".json"))throw Error("LEGACY_SESSION_EXISTS_"+code);results[code]="LISTO";}prop.setProperty("MVM36_PILOTS_ENABLED","YES");console.log(JSON.stringify(results));return results;}finally{lock.releaseLock();}}
 function mvm36DesactivarPilotos(){PropertiesService.getScriptProperties().deleteProperty("MVM36_PILOTS_ENABLED");return "DESACTIVADO";}
 
