@@ -33,6 +33,8 @@ function valuesOfRange(a,b,trail){
 }
 function applyFunction(fn,args){
  const name=fn.toUpperCase();
+ if(name==="IFERROR"||name==="SI.ERROR")return isErr(args[0])?args[1]:args[0];
+ if(name==="IF"||name==="SI")return isErr(args[0])?args[0]:(Boolean(args[0])?args[1]:args[2]??"");
  const hasError=args.find(isErr);if(hasError)return hasError;
  const series=a=>Array.isArray(a)?flat(a):[a];
  const nums=a=>series(a).filter(v=>v!==""&&v!=null&&Number.isFinite(num(v))).map(num);
@@ -60,9 +62,8 @@ function applyFunction(fn,args){
  if(name==="LARGE"||name==="K.ESIMO.MAYOR"){const a=nums(args[0]);const k=Math.trunc(num(args[1]));a.sort((x,y)=>y-x);return k>=1&&k<=a.length?a[k-1]:"#NUM!";}
  if(name==="SMALL"||name==="K.ESIMO.MENOR"){const a=nums(args[0]);const k=Math.trunc(num(args[1]));a.sort((x,y)=>x-y);return k>=1&&k<=a.length?a[k-1]:"#NUM!";}
  if(name==="COUNTBLANK"||name==="CONTAR.BLANCO")return flat(args).filter(x=>x===""||x==null).length;
- if(name==="ROUND"||name==="REDONDEAR"){const n=num(args[0]),d=Math.min(12,Math.max(0,num(args[1]??0)));return Number(n.toFixed(d));}
- if(name==="IF"||name==="SI")return Boolean(args[0])?args[1]:args[2]??"";
- if(name==="IFERROR"||name==="SI.ERROR")return isErr(args[0])?args[1]:args[0];
+ if(name==="ROUND"||name==="REDONDEAR"){const n=num(args[0]),d=Math.trunc(num(args[1]??0));if(!Number.isFinite(n)||!Number.isFinite(d)||Math.abs(d)>100)return "#NUM!";const f=Math.pow(10,d),v=Math.abs(n)*f;if(!Number.isFinite(v))return "#NUM!";return Math.sign(n)*Math.round(v+Number.EPSILON*Math.max(1,v))/f;}
+ 
  if(name==="AND"||name==="Y")return args.every(Boolean);
  if(name==="OR"||name==="O")return args.some(Boolean);
  if(name==="COUNTIF"||name==="CONTAR.SI"){const a=series(args[0]||[]);return a.filter(v=>criterion(v,args[1])).length;}
