@@ -118,6 +118,7 @@ table{border-collapse:collapse;width:100%;font-size:13px}
 (function(){"use strict";
 const $=id=>document.getElementById(id);
 const stage=window.parent.MVM36Stage?.get("pivot");if(!stage)throw Error("Etapa de tablas dinámicas no autorizada");const rows=stage.rows.map((r,i)=>({...r,Fecha:"2026-"+String(Math.floor(i/24)+1).padStart(2,"0")+"-"+String(i%24+1).padStart(2,"0"),PrecioUnitario:r.Precio}));let snapshots={};
+const months=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 const fields=["Fecha","Mes","Sucursal","Categoría","Título","Unidades","PrecioUnitario","Importe"],measures=["Unidades","PrecioUnitario","Importe"];
 let lastFilter="",selectedFilterValues=new Set();
 function option(value,label){const o=document.createElement("option");o.value=value;o.textContent=label;return o;}
