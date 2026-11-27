@@ -8,7 +8,7 @@ permissions:
 jobs:
   browser-qa:
     if: github.head_ref == 'revision-v36-paridad'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
