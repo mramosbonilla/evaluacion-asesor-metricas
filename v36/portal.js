@@ -49,8 +49,12 @@ function draftAnswer(){if(!view)return {};if(!tools.includes(view.stage))return 
  if(view.stage==="pivot")return {exercises:Object.values(d.snapshots||{}),working:d.activeExercise?{id:d.activeExercise,...(d.builder||{}),answers:d.answers||{},filterValues:d.filterValues||[]}:null};
  return {code:String(d.code??d.text??d.value??""),lastExecution:d.lastExecution||null,executions:Number(d.runCount)||0,engineReady:d.engineReady===true};
 }
-function telemetry(){const p=window.MVMInteractionMonitor?.snapshot?.();return {...mon,...(p?{evaluation:p}:{})}}
-function fromView(r,rerender=true){if(!r.view){complete=true;view=null;frame=null;render();status("Entrega confirmada por el servidor.");return;}attemptId=r.attemptId;view=r.view;caseIndex=view.caseIndex;offset=view.serverNow-Date.now();if(rerender)render();lastSave=Date.now();}
+function monitorKey(){return attemptId?"mvm36-monitor-"+attemptId:null;}
+function monitorLoad(){try{return JSON.parse(localStorage.getItem(monitorKey())||"{}");}catch(e){return {};}}
+function monitorSave(name,snapshot){if(!attemptId||!snapshot||snapshot.source!==name)return;try{const data=monitorLoad();data[name]=snapshot;localStorage.setItem(monitorKey(),JSON.stringify(data));}catch(e){}}
+window.MVM36Monitoring={get(name){return view?.stage===name?monitorLoad()[name]||null:null;}};
+function telemetry(){const p=window.MVMInteractionMonitor?.snapshot?.();if(p)monitorSave("evaluation",p);return {...monitorLoad(),...mon,...(p?{evaluation:p}:{})}}
+function fromView(r,rerender=true){if(!r.view){complete=true;view=null;frame=null;render();status("Entrega confirmada por el servidor.");return;}const changedAttempt=attemptId!==r.attemptId;attemptId=r.attemptId;view=r.view;caseIndex=view.caseIndex;if(changedAttempt){mon={};const old=monitorLoad().evaluation;const m=window.MVMInteractionMonitor;if(old)m?.restore?.(old);m?.start?.();if(m)m.onChange=x=>monitorSave("evaluation",x);}offset=view.serverNow-Date.now();if(rerender)render();lastSave=Date.now();}
 function welcome(){const body=$("body");body.replaceChildren(el("h2","Evaluación técnica · Asesor de Métricas"),el("p","Tienes 75 minutos. Responde las preguntas de opción múltiple, completa los simuladores y las preguntas abiertas. Al cerrar una etapa no podrás regresar. El tiempo continúa si cierras la página."),el("p","No utilices IA ni ayuda externa. Registramos indicadores de interacción dentro de la evaluación; las alertas son orientativas y no prueban por sí solas una falta."));const lab=el("label"),check=el("input");check.type="checkbox";lab.append(check,document.createTextNode(" Acepto las reglas de integridad"));body.append(lab,button("Comenzar o reanudar",async()=>{if(!check.checked){status("Debes aceptar las reglas.");return;}await claim();}));if(!allowed){body.append(el("p","Entorno de ensayo deshabilitado. No uses invitaciones de producción.","notice"));}nav();}
 function render(){
  const body=$("body");frame=null;body.replaceChildren();nav();document.body.classList.toggle("tool-wide",!!view&&tools.includes(view.stage));
@@ -94,12 +98,13 @@ async function transact(action,a,exit=false){
 }
 window.addEventListener("message",e=>{
  if(!frame||e.origin!==location.origin||e.source!==frame.contentWindow||!view||complete)return;
- const d=e.data;if(!d)return;if(d.type==="MVM_MONITOR_UPDATE"&&d.snapshot){mon[view.stage]=d.snapshot;return;}
+ const d=e.data;if(!d)return;if(d.type==="MVM_MONITOR_UPDATE"&&d.snapshot&&d.source===view.stage&&d.snapshot.source===view.stage){mon[view.stage]=d.snapshot;monitorSave(view.stage,d.snapshot);return;}
  const submit=(ans)=>{const stage=view.stage,caseNo=view.caseIndex,attempt=attemptId;const wait=()=>{if(!view||complete||view.stage!==stage||view.caseIndex!==caseNo||attemptId!==attempt)return;if(busy){status("Guardando avance previo; continuando al recibir confirmación…");setTimeout(wait,300);return;}transact("advance",ans);};wait();};
  if(d.type==="MVM36_SIM_COMPLETE"&&d.stage===view.stage)submit(d.answer);
  if((d.type==="MVM_SQL_COMPLETE"&&view.stage==="sql")||(d.type==="MVM_PYTHON_COMPLETE"&&view.stage==="python"))submit({code:String(d.code||""),lastExecution:d.lastExecution||null,executions:Number(d.executions)||0,engineReady:d.engineReady===true});
 });
 setInterval(()=>{if(!view||complete)return;const seconds=Math.max(0,Math.ceil((view.deadline-(view.frozenAt??(Date.now()+offset)))/1000));$("timer").textContent=String(Math.floor(seconds/60)).padStart(2,"0")+":"+String(seconds%60).padStart(2,"0");if(seconds===0&&!busy&&!view.expired)transact("finalize",{});else if(!busy&&view.stage!=="final"&&Date.now()-lastSave>=85000){transact("save",draftAnswer());}},1000);
+window.addEventListener("pagehide",()=>{const p=window.MVMInteractionMonitor?.snapshot?.();if(p)monitorSave("evaluation",p);});
 window.addEventListener("beforeunload",e=>{if(view&&!complete){e.preventDefault();e.returnValue="";}});
 render();
 })();
