@@ -476,8 +476,8 @@ function mvm36SandboxAuth_(params,prop){
  if(prop.getProperty("MVM36_PILOTS_ENABLED")!=="YES")throw Error("SANDBOX_DISABLED");
  const code=String(params.invitationCode||"");
  const token=String(params.invitationToken||"");
- const expected=/^P0[2-5]$/.test(code)?(JSON.parse(prop.getProperty("MVM_INVITE_HASHES")||"{}")[code]||""):"";
- if(!/^P0[2-5]$/.test(code)||!/^[a-f0-9]{64}$/.test(token)||!/^[a-f0-9]{64}$/.test(expected)||mvmHash_(token)!==expected)throw Error("INVALID_INVITATION");
+ const expected=/^P0[02345]$/.test(code)?(JSON.parse(prop.getProperty("MVM_INVITE_HASHES")||"{}")[code]||""):"";
+ if(!/^P0[02345]$/.test(code)||!/^[a-f0-9]{64}$/.test(token)||!/^[a-f0-9]{64}$/.test(expected)||mvmHash_(token)!==expected)throw Error("INVALID_INVITATION");
  return {...mvmSessionIdentity_(params),code};
 }
 // Client telemetry is advisory. Only bounded numeric aggregates are retained.
@@ -649,18 +649,20 @@ function mvm36SandboxAction_(params){
   lock.waitLock(25000);
   try{
    const cfg=mvmPrivateConfig_(prop),bank=mvm36BankFromPrivate_(cfg);
-   const path=MVM36_SANDBOX_PATH+identity.code+".json";
+   const isControl=identity.code==="P00";
+   const path=isControl?"control/2026/P00/sesion.json":MVM36_SANDBOX_PATH+identity.code+".json";
    const previous=mvmReadJson_(cfg,path);
    const prior=previous?.value?.schema==="MVM36_SANDBOX_1"?previous.value:null;
    if(previous&&!prior&&previous.value?.schema!=="MVM_SLOT_PENDING")throw Error("INVALID_SANDBOX_RECORD");
-   if(!prior&&prop.getProperty("MVM_SESSION_"+identity.code))throw Error("LEGACY_SESSION_EXISTS");
-   if(!prior&&mvmReadJson_(cfg,"entregas/2026/"+identity.code+".json"))throw Error("LEGACY_SESSION_EXISTS");
+   if(!isControl&&!prior&&prop.getProperty("MVM_SESSION_"+identity.code))throw Error("LEGACY_SESSION_EXISTS");
+   if(!isControl&&!prior&&mvmReadJson_(cfg,"entregas/2026/"+identity.code+".json"))throw Error("LEGACY_SESSION_EXISTS");
    const result=mvm36SandboxStep_(prior,bank,identity,req,Date.now(),identity.code+"-V36-"+Utilities.getUuid());
    result.record.invitationCode=identity.code;
    // Receipt only after durable server storage.
    if(JSON.stringify(prior)!==JSON.stringify(result.record))mvmWriteJson_(cfg,path,result.record,previous);
    if(result.record.submitted){
-    const finalPath="entregas/2026/"+identity.code+".json",existing=mvmReadJson_(cfg,finalPath),report=mvm36Report_(result.record,bank);
+    const finalPath=isControl?"control/2026/P00/entregas/"+result.record.state.attemptId+".json":"entregas/2026/"+identity.code+".json",existing=mvmReadJson_(cfg,finalPath),report=mvm36Report_(result.record,bank);
+    if(isControl){report.pilot.mode="CONTROL_INTERNO";report.pilot.excludeFromRanking=true;}
     if(existing){if(existing.value?.attemptId!==report.attemptId||existing.value?.bankRef!==report.bankRef)throw Error("LEGACY_SESSION_EXISTS");}
     else mvmWriteJson_(cfg,finalPath,report,null);
    }
@@ -679,3 +681,14 @@ function mvm36EstadoMigracion(){const prop=PropertiesService.getScriptProperties
 function doPost(e){const p=e&&e.parameter||{};if(/^v36_(claim|save|advance|finalize)$/.test(String(p.action||"")))return mvm36SandboxAction_(p);return mvm35DoPost_(e);}
 function mvm36ActivarPilotos(){const prop=PropertiesService.getScriptProperties(),lock=LockService.getScriptLock();lock.waitLock(25000);try{const cfg=mvmPrivateConfig_(prop);mvm36BankFromPrivate_(cfg);const results={};for(const code of ["P02","P03","P04","P05"]){if(prop.getProperty("MVM_SESSION_"+code)||mvmReadJson_(cfg,"entregas/2026/"+code+".json"))throw Error("LEGACY_SESSION_EXISTS_"+code);results[code]="LISTO";}prop.setProperty("MVM36_PILOTS_ENABLED","YES");console.log(JSON.stringify(results));return results;}finally{lock.releaseLock();}}
 function mvm36DesactivarPilotos(){PropertiesService.getScriptProperties().deleteProperty("MVM36_PILOTS_ENABLED");return "DESACTIVADO";}
+
+// Función administrativa: solo desde el editor Apps Script; NO expuesta en doPost.
+function mvm36ReiniciarControlP00(){
+ const lock=LockService.getScriptLock();lock.waitLock(25000);
+ try{const cfg=mvmPrivateConfig_(PropertiesService.getScriptProperties()),path="control/2026/P00/sesion.json",old=mvmReadJson_(cfg,path);
+ if(old?.value?.schema==="MVM_SLOT_PENDING")return "P00_DISPONIBLE";
+ if(old){const prior=old.value,id=prior?.state?.attemptId;if(prior.schema!=="MVM36_SANDBOX_1"||prior.invitationCode!=="P00"||!/^P00-V36-[a-f0-9-]{36}$/.test(id||""))throw Error("INVALID_CONTROL_RECORD");
+ const history="control/2026/P00/historial/"+id+".json",saved=mvmReadJson_(cfg,history);if(!saved)mvmWriteJson_(cfg,history,prior,null);else if(JSON.stringify(saved.value)!==JSON.stringify(prior))throw Error("CONTROL_ARCHIVE_CONFLICT");}
+ mvmWriteJson_(cfg,path,{schema:"MVM_SLOT_PENDING",invitationCode:"P00",reason:"CONTROL_INTERNO",resetAt:new Date().toISOString()},old);return "P00_DISPONIBLE";
+ }finally{lock.releaseLock();}
+}
