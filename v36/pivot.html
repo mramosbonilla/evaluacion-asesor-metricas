@@ -81,6 +81,7 @@ table{border-collapse:collapse;width:100%;font-size:13px}
  <div id="pivotResponseFields" class="response-fields"></div>
  <div class="notice"><strong>Evaluación de conocimientos:</strong> determina por tu cuenta qué campos, cálculos, filtros y presentación necesita el informe solicitado. Puedes consultar los registros de origen. Está prohibido utilizar IA u otras fuentes externas para recibir, copiar y pegar, o transcribir respuestas. Incumplir esta regla constituye una falta a la integridad.</div>
  <div class="actions">
+  <button id="prevPivot" type="button" class="alt" disabled>← Ejercicio anterior</button>
   <button id="saveAndNextPivot" type="button">Guardar ejercicio 1 y continuar</button>
   <button id="skipPivot" type="button" class="alt">No sé resolverlo · pasar al siguiente</button>
   <button id="reset" type="button" class="alt">Limpiar tabla</button>
@@ -248,7 +249,7 @@ for(const r of rows){
 }
 
 const tasks=stage.tasks.map((r,i)=>({title:["Facturación por sucursal y categoría","Resultados comerciales de marzo","Clasificación de títulos"][i],points:[8,6,6][i],prompt:r.prompt,questions:[[["total_general","Facturación total"],["sucursal_lider","Sucursal líder"],["categoria_lider","Categoría líder"]],[["total_marzo","Facturación total de marzo"],["sucursal_marzo","Sucursal líder en marzo"]],[["titulo_lider","Título líder"],["unidades_lider","Unidades del título líder"]]][i]}));
-let activeExercise=1;
+let activeExercise=1,pivotTransition=false,pivotClickAfter=0;
 const inEvaluation=new URLSearchParams(location.search).get("embed")==="1"&&window.parent!==window;
 function renderTask(){
  const task=tasks[activeExercise-1];
@@ -267,6 +268,7 @@ function renderTask(){
  $("saveAndNextPivot").textContent=activeExercise===3?"Guardar ejercicio 3 y continuar a SQL":"Guardar ejercicio "+activeExercise+" y continuar";
  $("skipPivot").textContent=activeExercise===3?"Omitir último ejercicio y continuar":"No sé resolverlo · siguiente ejercicio";
  $("savedState").textContent=Object.keys(snapshots).length+" de 3 guardados";
+ $("prevPivot").disabled=activeExercise===1;
 }
 function resetBuilder(){
  for(const id of ["rowField","colField","valueField","filterField"])$(id).value="";
@@ -294,24 +296,26 @@ function saveSnapshot(n,skipped){
  if(inEvaluation)window.parent.postMessage({type:"MVM_PIVOT_PROGRESS",version:16,snapshots},location.origin);
  return snapshot;
 }
+function restoreExercise(n){activeExercise=n;resetBuilder();renderTask();const d=snapshots[n];if(d){for(const id of ["rowField","colField","valueField","aggregate","filterField","sortOrder"])if(d[id]!=null)$(id).value=d[id];lastFilter=$("filterField").value;selectedFilterValues=new Set(d.filterValues||[]);onUpdate();for(const [k,v] of Object.entries(d.answers||{})){const e=$("pivotAnswer-"+k);if(e)e.value=v;}}pivotClickAfter=Date.now()+650;window.scrollTo({top:0,behavior:"smooth"});}
 function finishAndContinue(){
  if(inEvaluation)window.parent.postMessage({type:"MVM36_SIM_COMPLETE",stage:"pivot",answer:{exercises:Object.values(snapshots)}},location.origin);
 }
 function moveAfterSave(skipped){
+ if(pivotTransition||Date.now()<pivotClickAfter)return;
  const n=activeExercise;
  if(!skipped&&!$("valueField").value)skipped=true;
  if(skipped){
-  if(!confirm("Ejercicio "+n+" sin resolver. No recibirá puntuación. Si continúas, no podrás regresar a este ejercicio. ¿Seguro que deseas continuar?"))return;
+  if(!confirm("Ejercicio "+n+" sin resolver. No recibirá puntuación. Puedes volver a este ejercicio mientras no cierres la etapa. ¿Seguro que deseas continuar?"))return;
  }else{
   const missing=tasks[n-1].questions.filter(([k])=>!($("pivotAnswer-"+k)?.value||"").trim()).length;
-  if(missing&&!confirm("Ejercicio incompleto: "+missing+" respuesta(s) pendiente(s). Las respuestas pendientes no recibirán puntuación. Se conservará la tabla construida para calificación parcial. Si continúas, no podrás regresar a este ejercicio. ¿Seguro que deseas continuar?"))return;
+  if(missing&&!confirm("Ejercicio incompleto: "+missing+" respuesta(s) pendiente(s). Las respuestas pendientes no recibirán puntuación. Se conservará la tabla construida para calificación parcial. Puedes volver a este ejercicio mientras no cierres la etapa. ¿Seguro que deseas continuar?"))return;
  }
+ if(n===3&&!confirm("¿Cerrar los tres ejercicios de tablas dinámicas y continuar a SQL? No podrás volver a esta etapa."))return;
  saveSnapshot(n,skipped);
- if(n===3){finishAndContinue();return;}
- activeExercise++;
- resetBuilder();renderTask();
- window.scrollTo({top:0,behavior:"smooth"});
+ if(n===3){pivotTransition=true;$("prevPivot").disabled=true;$("saveAndNextPivot").disabled=true;$("skipPivot").disabled=true;finishAndContinue();setTimeout(()=>{pivotTransition=false;$("prevPivot").disabled=activeExercise===1;$("saveAndNextPivot").disabled=false;$("skipPivot").disabled=false;},15000);return;}
+ restoreExercise(n+1);
 }
+$("prevPivot").onclick=()=>{if(pivotTransition||Date.now()<pivotClickAfter||activeExercise<=1)return;saveSnapshot(activeExercise,!$("valueField").value);restoreExercise(activeExercise-1);};
 $("saveAndNextPivot").onclick=()=>moveAfterSave(false);
 $("skipPivot").onclick=()=>moveAfterSave(true);
 if(inEvaluation)$("backToEvaluation").hidden=true;
