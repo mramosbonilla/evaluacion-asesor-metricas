@@ -68,7 +68,7 @@ function render(){
  }else if(s==="open"){
   answer={response:d.response||""};body.append(el("p","Caso "+(view.caseIndex+1)+" de 3"),el("h3",view.content.title),el("p",view.content.prompt));const t=el("textarea");t.id="caseResponse";t.value=answer.response;t.rows=12;t.oninput=()=>{answer.response=t.value;saveLocal()};body.append(t);
  }else if(tools.includes(s)){
-  answer=null;frame=el("iframe");frame.className="v36-frame";frame.title=labels[stages.indexOf(s)];frame.src="./"+s+".html?embed=1&v=36";body.append(frame);
+  answer=null;frame=el("iframe");frame.className="v36-frame";frame.title=labels[stages.indexOf(s)];frame.src="./"+s+".html?embed=1&v=36.2";body.append(frame);
  }else if(s==="final"){
   const f=localGet()?.answer?.feedback||d.feedback||{};
   answer={feedback:{...f}};body.append(el("p","La evaluación está cerrada. Los comentarios no modifican tus respuestas ni la calificación."));
@@ -95,8 +95,9 @@ async function transact(action,a,exit=false){
 window.addEventListener("message",e=>{
  if(!frame||e.origin!==location.origin||e.source!==frame.contentWindow||!view||complete)return;
  const d=e.data;if(!d)return;if(d.type==="MVM_MONITOR_UPDATE"&&d.snapshot){mon[view.stage]=d.snapshot;return;}
- if(d.type==="MVM36_SIM_COMPLETE"&&d.stage===view.stage)transact("advance",d.answer);
- if((d.type==="MVM_SQL_COMPLETE"&&view.stage==="sql")||(d.type==="MVM_PYTHON_COMPLETE"&&view.stage==="python"))transact("advance",{code:String(d.code||"")});
+ const submit=(ans)=>{const stage=view.stage,caseNo=view.caseIndex,attempt=attemptId;const wait=()=>{if(!view||complete||view.stage!==stage||view.caseIndex!==caseNo||attemptId!==attempt)return;if(busy){status("Guardando avance previo; continuando al recibir confirmación…");setTimeout(wait,300);return;}transact("advance",ans);};wait();};
+ if(d.type==="MVM36_SIM_COMPLETE"&&d.stage===view.stage)submit(d.answer);
+ if((d.type==="MVM_SQL_COMPLETE"&&view.stage==="sql")||(d.type==="MVM_PYTHON_COMPLETE"&&view.stage==="python"))submit({code:String(d.code||"")});
 });
 setInterval(()=>{if(!view||complete)return;const seconds=Math.max(0,Math.ceil((view.deadline-(view.frozenAt??(Date.now()+offset)))/1000));$("timer").textContent=String(Math.floor(seconds/60)).padStart(2,"0")+":"+String(seconds%60).padStart(2,"0");if(seconds===0&&!busy&&!view.expired)transact("finalize",{});else if(!busy&&view.stage!=="final"&&Date.now()-lastSave>=85000){transact("save",draftAnswer());}},1000);
 window.addEventListener("beforeunload",e=>{if(view&&!complete){e.preventDefault();e.returnValue="";}});
