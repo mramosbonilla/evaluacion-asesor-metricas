@@ -38,15 +38,36 @@ function mvm36StageView_(state,bank,now){
  }
  return mvm36Copy_(v);
 }
+function mvm36ExecutionEvidence_(stage,p){
+ const code=mvm36Text_(p.code||"",30000),out={code,executions:Math.max(0,Math.min(100000,Math.trunc(Number(p.executions)||0))),lastExecution:null};
+ if(stage==="python")out.engineReady=p.engineReady===true;
+ const x=p.lastExecution;if(!x||typeof x!=="object"||String(stage==="sql"?x.query:x.code)!==code)return out;
+ const safe=(v,n)=>String(v??"").slice(0,n),e={success:x.success===true,executionCount:Math.max(0,Math.min(100000,Math.trunc(Number(x.executionCount)||0))),error:safe(x.error,3000)};
+ if(stage==="sql"){
+  e.query=code;e.rowsReturned=Math.max(0,Math.min(1000000,Math.trunc(Number(x.rowsReturned)||0)));
+  e.results=Array.isArray(x.results)?x.results.slice(0,3).map(t=>({columns:Array.isArray(t?.columns)?t.columns.slice(0,30).map(v=>safe(v,100)):[],values:Array.isArray(t?.values)?t.values.slice(0,100).map(row=>Array.isArray(row)?row.slice(0,30).map(v=>v===null||typeof v==="number"&&Number.isFinite(v)?v:safe(v,200)):[]):[]})):[];
+  // Keep an upper bound on the total size, irrespective of the result table shape.
+  if(JSON.stringify(e.results).length>40000)e.results=[];
+ }else{e.code=code;e.output=safe(x.output,30000);e.executedAt=safe(x.executedAt,60);}
+ out.lastExecution=e;return out;
+}
+function mvm36PivotRecord_(x){
+ mvm36Obj_(x);if(![1,2,3].includes(x.id))mvm36Fail_("INVALID_PIVOT");
+ const a=mvm36Obj_(x.answers||{}),answers={};if(Object.keys(a).length>10)mvm36Fail_("INVALID_PIVOT");
+ for(const k of Object.keys(a)){if(!/^[a-z_0-9]{1,50}$/.test(k))mvm36Fail_("INVALID_PIVOT");answers[k]=mvm36Text_(a[k],300);}
+ const fields={};for(const k of ["rowField","colField","valueField","aggregate","filterField","sortOrder"])fields[k]=mvm36Text_(x[k]||"",60);
+ const filters=x.filterValues||[];if(!Array.isArray(filters)||filters.length>80)mvm36Fail_("INVALID_PIVOT");
+ return {id:x.id,skipped:x.skipped===true,...fields,filterValues:filters.map(v=>mvm36Text_(v,100)),answers};
+}
 function mvm36ValidateAnswer_(stage,caseIndex,bank,input,partial){
  const p=mvm36Obj_(input);
  switch(stage){
  case "identification":{const name=mvm36Text_(p.name||"",160).trim(),email=mvm36Text_(p.email||"",180).trim();if(!partial&&(!name||!email))mvm36Fail_("IDENTIFICATION_REQUIRED");return {name,email};}
  case "objective":return {answers:mvm36Array_(p.answers,15).map((v,i)=>{if(v!==null&&(!Number.isInteger(v)||v<0||v>3))mvm36Fail_("INVALID_OPTION");return {id:bank.objective[i].id,selected:v};})};
  case "excel":{const f=mvm36Obj_(p.formulas||{}),formulas={};const keys=Object.keys(f);if(keys.length>1500)mvm36Fail_("EXCEL_LIMIT");for(const k of keys){if(!/^[A-Z]{1,3}[1-9][0-9]{0,3}$/.test(k))mvm36Fail_("INVALID_CELL");formulas[k]=mvm36Text_(f[k],1000);}const ids=bank.practical.excel.rows.map(r=>String(r.id)),order=p.rowOrder===undefined?ids:p.rowOrder;
- if(!Array.isArray(order)||order.length!==ids.length||new Set(order.map(String)).size!==ids.length||order.some(id=>!ids.includes(String(id))))mvm36Fail_("INVALID_ROW_ORDER");return {formulas,rowOrder:order.map(String)};}
- case "pivot":{const items=p.exercises;if(!Array.isArray(items)||items.length>3)mvm36Fail_("INVALID_PIVOT");const result=[],seen=new Set();for(const x of items){mvm36Obj_(x);if(![1,2,3].includes(x.id)||seen.has(x.id))mvm36Fail_("INVALID_PIVOT");seen.add(x.id);const a=mvm36Obj_(x.answers||{}),answers={};if(Object.keys(a).length>10)mvm36Fail_("INVALID_PIVOT");for(const k of Object.keys(a)){if(!/^[a-z_0-9]{1,50}$/.test(k))mvm36Fail_("INVALID_PIVOT");answers[k]=mvm36Text_(a[k],300);}const fields={};for(const k of ["rowField","colField","valueField","aggregate","filterField","sortOrder"])fields[k]=mvm36Text_(x[k]||"",60);const filters=x.filterValues||[];if(!Array.isArray(filters)||filters.length>80)mvm36Fail_("INVALID_PIVOT");result.push({id:x.id,skipped:x.skipped===true,...fields,filterValues:filters.map(v=>mvm36Text_(v,100)),answers});}return {exercises:result};}
- case "sql":case "python":return {code:mvm36Text_(p.code||"",30000)};
+ if(!Array.isArray(order)||order.length!==ids.length||new Set(order.map(String)).size!==ids.length||order.some(id=>!ids.includes(String(id))))mvm36Fail_("INVALID_ROW_ORDER");const layout={};if(partial&&p.layout&&typeof p.layout==="object"){const raw=p.layout;layout.selected=/^[A-K][1-9][0-9]{0,3}$/.test(raw.selected||"")?raw.selected:"A1";layout.filterChannel=typeof raw.filterChannel==="string"?raw.filterChannel.slice(0,60):"Todos";layout.cellFormats={};for(const [k,v] of Object.entries(raw.cellFormats||{}).slice(0,1500)){if(!/^[A-K][1-9][0-9]{0,3}$/.test(k))continue;if(typeof v==="string")layout.cellFormats[k]=v.slice(0,30);else if(v&&typeof v==="object")layout.cellFormats[k]=Object.fromEntries(Object.entries(v).filter(([key,value])=>["percent","bold","border","number","format"].includes(key)&&["string","boolean"].includes(typeof value)).map(([key,value])=>[key,typeof value==="string"?value.slice(0,30):value]));}}return {formulas,rowOrder:order.map(String),layout};}
+ case "pivot":{const items=p.exercises;if(!Array.isArray(items)||items.length>3)mvm36Fail_("INVALID_PIVOT");const result=items.map(mvm36PivotRecord_);if(new Set(result.map(x=>x.id)).size!==result.length)mvm36Fail_("INVALID_PIVOT");const working=partial&&p.working?mvm36PivotRecord_(p.working):null;return {exercises:result,working};}
+ case "sql":case "python":return mvm36ExecutionEvidence_(stage,p);
  case "open":return {id:bank.open[caseIndex].id,response:mvm36Text_(p.response||"",16000)};
  case "final":return {};
  default:mvm36Fail_("INVALID_STAGE");

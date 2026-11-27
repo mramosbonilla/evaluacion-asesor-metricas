@@ -358,6 +358,10 @@ function mvmDiagnosticoP01(){
  Logger.log(JSON.stringify(result));
 }
 
+/* MVM V36 · núcleo de evaluación privada, borrador.
+ * Funciones puras para servidor; no contienen preguntas, respuestas ni credenciales.
+ * El adaptador debe autenticar invitación, sesión y exclusividad bajo LockService ANTES de invocarlas.
+ */
 const MVM36_STAGES = ["identification","objective","excel","pivot","sql","python","open","final"];
 function mvm36Fail_(code){throw new Error(code);}
 function mvm36Copy_(v){return JSON.parse(JSON.stringify(v));}
@@ -394,15 +398,36 @@ function mvm36StageView_(state,bank,now){
  }
  return mvm36Copy_(v);
 }
+function mvm36ExecutionEvidence_(stage,p){
+ const code=mvm36Text_(p.code||"",30000),out={code,executions:Math.max(0,Math.min(100000,Math.trunc(Number(p.executions)||0))),lastExecution:null};
+ if(stage==="python")out.engineReady=p.engineReady===true;
+ const x=p.lastExecution;if(!x||typeof x!=="object"||String(stage==="sql"?x.query:x.code)!==code)return out;
+ const safe=(v,n)=>String(v??"").slice(0,n),e={success:x.success===true,executionCount:Math.max(0,Math.min(100000,Math.trunc(Number(x.executionCount)||0))),error:safe(x.error,3000)};
+ if(stage==="sql"){
+  e.query=code;e.rowsReturned=Math.max(0,Math.min(1000000,Math.trunc(Number(x.rowsReturned)||0)));
+  e.results=Array.isArray(x.results)?x.results.slice(0,3).map(t=>({columns:Array.isArray(t?.columns)?t.columns.slice(0,30).map(v=>safe(v,100)):[],values:Array.isArray(t?.values)?t.values.slice(0,100).map(row=>Array.isArray(row)?row.slice(0,30).map(v=>v===null||typeof v==="number"&&Number.isFinite(v)?v:safe(v,200)):[]):[]})):[];
+  // Keep an upper bound on the total size, irrespective of the result table shape.
+  if(JSON.stringify(e.results).length>40000)e.results=[];
+ }else{e.code=code;e.output=safe(x.output,30000);e.executedAt=safe(x.executedAt,60);}
+ out.lastExecution=e;return out;
+}
+function mvm36PivotRecord_(x){
+ mvm36Obj_(x);if(![1,2,3].includes(x.id))mvm36Fail_("INVALID_PIVOT");
+ const a=mvm36Obj_(x.answers||{}),answers={};if(Object.keys(a).length>10)mvm36Fail_("INVALID_PIVOT");
+ for(const k of Object.keys(a)){if(!/^[a-z_0-9]{1,50}$/.test(k))mvm36Fail_("INVALID_PIVOT");answers[k]=mvm36Text_(a[k],300);}
+ const fields={};for(const k of ["rowField","colField","valueField","aggregate","filterField","sortOrder"])fields[k]=mvm36Text_(x[k]||"",60);
+ const filters=x.filterValues||[];if(!Array.isArray(filters)||filters.length>80)mvm36Fail_("INVALID_PIVOT");
+ return {id:x.id,skipped:x.skipped===true,...fields,filterValues:filters.map(v=>mvm36Text_(v,100)),answers};
+}
 function mvm36ValidateAnswer_(stage,caseIndex,bank,input,partial){
  const p=mvm36Obj_(input);
  switch(stage){
  case "identification":{const name=mvm36Text_(p.name||"",160).trim(),email=mvm36Text_(p.email||"",180).trim();if(!partial&&(!name||!email))mvm36Fail_("IDENTIFICATION_REQUIRED");return {name,email};}
  case "objective":return {answers:mvm36Array_(p.answers,15).map((v,i)=>{if(v!==null&&(!Number.isInteger(v)||v<0||v>3))mvm36Fail_("INVALID_OPTION");return {id:bank.objective[i].id,selected:v};})};
  case "excel":{const f=mvm36Obj_(p.formulas||{}),formulas={};const keys=Object.keys(f);if(keys.length>1500)mvm36Fail_("EXCEL_LIMIT");for(const k of keys){if(!/^[A-Z]{1,3}[1-9][0-9]{0,3}$/.test(k))mvm36Fail_("INVALID_CELL");formulas[k]=mvm36Text_(f[k],1000);}const ids=bank.practical.excel.rows.map(r=>String(r.id)),order=p.rowOrder===undefined?ids:p.rowOrder;
- if(!Array.isArray(order)||order.length!==ids.length||new Set(order.map(String)).size!==ids.length||order.some(id=>!ids.includes(String(id))))mvm36Fail_("INVALID_ROW_ORDER");return {formulas,rowOrder:order.map(String)};}
- case "pivot":{const items=p.exercises;if(!Array.isArray(items)||items.length>3)mvm36Fail_("INVALID_PIVOT");const result=[],seen=new Set();for(const x of items){mvm36Obj_(x);if(![1,2,3].includes(x.id)||seen.has(x.id))mvm36Fail_("INVALID_PIVOT");seen.add(x.id);const a=mvm36Obj_(x.answers||{}),answers={};if(Object.keys(a).length>10)mvm36Fail_("INVALID_PIVOT");for(const k of Object.keys(a)){if(!/^[a-z_0-9]{1,50}$/.test(k))mvm36Fail_("INVALID_PIVOT");answers[k]=mvm36Text_(a[k],300);}const fields={};for(const k of ["rowField","colField","valueField","aggregate","filterField","sortOrder"])fields[k]=mvm36Text_(x[k]||"",60);const filters=x.filterValues||[];if(!Array.isArray(filters)||filters.length>80)mvm36Fail_("INVALID_PIVOT");result.push({id:x.id,skipped:x.skipped===true,...fields,filterValues:filters.map(v=>mvm36Text_(v,100)),answers});}return {exercises:result};}
- case "sql":case "python":return {code:mvm36Text_(p.code||"",30000)};
+ if(!Array.isArray(order)||order.length!==ids.length||new Set(order.map(String)).size!==ids.length||order.some(id=>!ids.includes(String(id))))mvm36Fail_("INVALID_ROW_ORDER");const layout={};if(partial&&p.layout&&typeof p.layout==="object"){const raw=p.layout;layout.selected=/^[A-K][1-9][0-9]{0,3}$/.test(raw.selected||"")?raw.selected:"A1";layout.filterChannel=typeof raw.filterChannel==="string"?raw.filterChannel.slice(0,60):"Todos";layout.cellFormats={};for(const [k,v] of Object.entries(raw.cellFormats||{}).slice(0,1500)){if(!/^[A-K][1-9][0-9]{0,3}$/.test(k))continue;if(typeof v==="string")layout.cellFormats[k]=v.slice(0,30);else if(v&&typeof v==="object")layout.cellFormats[k]=Object.fromEntries(Object.entries(v).filter(([key,value])=>["percent","bold","border","number","format"].includes(key)&&["string","boolean"].includes(typeof value)).map(([key,value])=>[key,typeof value==="string"?value.slice(0,30):value]));}}return {formulas,rowOrder:order.map(String),layout};}
+ case "pivot":{const items=p.exercises;if(!Array.isArray(items)||items.length>3)mvm36Fail_("INVALID_PIVOT");const result=items.map(mvm36PivotRecord_);if(new Set(result.map(x=>x.id)).size!==result.length)mvm36Fail_("INVALID_PIVOT");const working=partial&&p.working?mvm36PivotRecord_(p.working):null;return {exercises:result,working};}
+ case "sql":case "python":return mvm36ExecutionEvidence_(stage,p);
  case "open":return {id:bank.open[caseIndex].id,response:mvm36Text_(p.response||"",16000)};
  case "final":return {};
  default:mvm36Fail_("INVALID_STAGE");
@@ -437,10 +462,6 @@ function mvm36ObjectiveScore_(state,bank){
  return {correct,total:bank.objective.length,points:correct*bank.weights.objective/bank.objective.length};
 }
 
-/* MVM V36 · adaptador de pruebas aislado. NO conectar a doPost de producción.
- * Permite únicamente T36 tras configurar explícitamente un hash de invitación de ensayo.
- * Depende del núcleo V36 y las funciones del receptor V35. No usa P00–P15.
- */
 const MVM36_BANK_REF="a1dbca0bf960a123ec18bc0c6d8b8ccfab6120fc";
 const MVM36_BANK_PATH="bancos/MVM-ASESOR-2026-V36.json";
 const MVM36_SANDBOX_PATH="v36-sandbox/";
@@ -463,12 +484,12 @@ function mvm36SandboxAuth_(params,prop){
 function mvm36Telemetry_(input){
  if(!input||typeof input!=="object")return null;
  const countKeys=["copyAttempts","pasteAttempts","dropAttempts","visibilityHiddenCount","hiddenMilliseconds","focusLossCount","focusLossMilliseconds"];
- const fieldKeys=["typedCharacters","deletedCharacters","inputEvents","activeTypingMs","writingSpanMs","pausesOver5Seconds","pausesOver10Seconds","substantialRevisionCount","backspacePresses","deletePresses","longestUninterruptedCharacters","longestInterInputPauseMs"];
+ const fieldKeys=["typedCharacters","deletedCharacters","inputEvents","activeTypingMs","writingSpanMs","pausesOver5Seconds","pausesOver10Seconds","substantialRevisionCount","backspacePresses","deletePresses","longestUninterruptedCharacters","longestInterInputPauseMs","correctionCycles","multilineRevisionCount","minorDeletionEvents","maxDeletionSequenceChars"];
  const norm=v=>Number.isFinite(v)&&v>=0?Math.min(Math.round(v),100000000):0;
  const out={sources:{}};
  for(const [source,s] of Object.entries(input).slice(0,6)){
   if(!["evaluation","excel","pivot","sql","python"].includes(source)||!s||typeof s!=="object")continue;
-  const v={};for(const k of countKeys)v[k]=norm(s[k]);v.fields={};
+  const v={source,schema:"MVM_MONITOR_1",pasteAllowed:true};for(const k of countKeys)v[k]=norm(s[k]);v.fields={};
   for(const [key,f] of Object.entries(s.fields||{}).slice(0,100)){
    if(!/^[a-zA-Z0-9_]{1,80}$/.test(key)||!f||typeof f!=="object")continue;
    v.fields[key]=Object.fromEntries(fieldKeys.map(k=>[k,norm(f[k])]));
@@ -484,17 +505,97 @@ function mvm36Feedback_(answer){
  return out;
 }
 function mvm36FeedbackView_(r,now){return {examId:r.state.examId,stage:"final",caseIndex:0,revision:r.state.revision,deadline:r.state.deadline,serverNow:now,frozenAt:r.state.finishedAt,draft:{feedback:r.feedback||{}},content:{readyToSubmit:true},expired:true};}
+function mvm36MonitoringSummary_(data){
+ const parent=data.parent||{};
+ const sources=[];
+ for(const sessions of Object.values(data.tools||{}))
+  for(const item of Object.values(sessions||{}))
+   if(item&&item.schema==="MVM_MONITOR_1")sources.push(item);
+ const fields={};
+ for(const item of [parent,...sources]){
+  for(const [field,f] of Object.entries(item.fields||{})){
+   const origin=item.source||"evaluation",key=origin+"."+field;
+   const total=fields[key]||{source:origin,field,typedCharacters:0,deletedCharacters:0,backspacePresses:0,deletePresses:0,inputEvents:0,activeTypingMs:0,correctionCycles:0,longestUninterruptedCharacters:0,writingSpanMs:0,pausesOver5Seconds:0,pausesOver10Seconds:0,longestInterInputPauseMs:0,substantialRevisionCount:0,multilineRevisionCount:0,minorDeletionEvents:0,maxDeletionSequenceChars:0};
+   for(const k of ["typedCharacters","deletedCharacters","backspacePresses","deletePresses","inputEvents","activeTypingMs","correctionCycles","writingSpanMs","pausesOver5Seconds","pausesOver10Seconds","substantialRevisionCount","multilineRevisionCount","minorDeletionEvents"])total[k]+=Number(f[k]||0);
+   for(const k of ["longestUninterruptedCharacters","longestInterInputPauseMs","maxDeletionSequenceChars"])
+    total[k]=Math.max(total[k],Number(f[k]||0));
+   total.activeCharactersPerSecond=total.activeTypingMs>=1000?Number((total.typedCharacters/(total.activeTypingMs/1000)).toFixed(2)):null;
+   total.sustainedCharactersPerSecond=total.writingSpanMs>=30000?Number((total.typedCharacters/(total.writingSpanMs/1000)).toFixed(2)):null;
+   total.deletionRatio=total.typedCharacters?Number((total.deletedCharacters/total.typedCharacters).toFixed(3)):null;
+   fields[key]=total;
+  }
+ }
+ const copyEvents=[parent,...sources].reduce((z,x)=>z+Number(x.copyAttempts||0),0);
+ const pasteEvents=[parent,...sources].reduce((z,x)=>z+Number(x.pasteAttempts||0),0);
+ const dropEvents=[parent,...sources].reduce((z,x)=>z+Number(x.dropAttempts||0),0);
+ const legacyBlockedPaste=[parent,...sources].filter(x=>x.pasteAllowed!==true).reduce((z,x)=>z+Number(x.pasteAttempts||0),0);
+ const tabs=Number(parent.visibilityHiddenCount||0),blur=Number(parent.focusLossCount||0);
+ const alerts=[];
+ const reopens=data.reopens||{count:0,events:[]};
+ if(reopens.count)alerts.push({code:"ASSESSMENT_REOPENED",level:"informativo",count:reopens.count,evidence:{events:reopens.events||[]},message:"Se reabrió o recargó la evaluación en el mismo perfil de navegador. Puede deberse a una salida accidental, actualización o fallo técnico; no demuestra un reinicio intencional."});
+ if(tabs)alerts.push({code:"TAB_HIDDEN",level:"revisar",count:tabs,message:"La pestaña del examen dejó de estar visible "+tabs+" veces. No es posible saber qué pantalla se utilizó."});
+ if(blur)alerts.push({code:"FOCUS_LOST",level:"informativo",count:blur,message:"La ventana perdió el foco "+blur+" veces; también puede suceder por funciones normales del navegador."});
+ if(pasteEvents||dropEvents)alerts.push({code:"PASTE_DETECTED",level:"revisar",count:pasteEvents+dropEvents,message:"Se registraron "+pasteEvents+" eventos de pegado y "+dropEvents+" de arrastrar contenido en respuestas. El evento no permite conocer el origen del texto; revisar con el candidato."});
+ if(copyEvents)alerts.push({code:"COPY_DETECTED",level:"informativo",count:copyEvents,message:"Se registraron "+copyEvents+" acciones de copiar contenido dentro de áreas de respuesta. No permite saber si también se copió información en otras aplicaciones."});
+ for(const f of Object.values(fields)){
+  const longForm=f.field.startsWith("caso_")||f.field==="consulta_sql"||f.field==="codigo_python";
+  // Calibration rule, not a diagnosis: all indicators are required at once.
+  // Excel formulas often require little revision even when solved independently.
+  const continuousRapid=longForm&&f.typedCharacters>=300&&f.writingSpanMs>=45000&&
+   f.sustainedCharactersPerSecond>=3.5&&f.pausesOver5Seconds<=1&&
+   f.substantialRevisionCount===0&&f.multilineRevisionCount===0&&
+   f.deletionRatio!==null&&f.deletionRatio<=0.05&&
+   f.longestUninterruptedCharacters>=180;
+  // Exploratory calibration from P00; requires several simultaneous indicators.
+  const pausesPerMinute=f.writingSpanMs>0?f.pausesOver5Seconds/(f.writingSpanMs/60000):null;
+  const steadyLowRevision=f.field.startsWith("caso_")&&f.typedCharacters>=250&&f.inputEvents>=150&&f.writingSpanMs>=60000&&
+   f.activeCharactersPerSecond>=2.5&&f.sustainedCharactersPerSecond>=1.8&&pausesPerMinute!==null&&pausesPerMinute<=1&&f.pausesOver10Seconds===0&&
+   f.deletionRatio!==null&&f.deletionRatio<=0.05&&f.substantialRevisionCount===0&&f.multilineRevisionCount===0;
+  if(continuousRapid||steadyLowRevision){
+   alerts.push({
+    code:continuousRapid?"FAST_CONTINUOUS_LOW_REVISION":"POSSIBLE_TRANSCRIPTION",level:"revisar",source:f.source,field:f.field,
+    evidence:{typedCharacters:f.typedCharacters,writingSeconds:Math.round(f.writingSpanMs/1000),
+     sustainedCharactersPerSecond:f.sustainedCharactersPerSecond,activeCharactersPerSecond:f.activeCharactersPerSecond,inputEvents:f.inputEvents,pausesOver5Seconds:f.pausesOver5Seconds,pausesOver10Seconds:f.pausesOver10Seconds,pausesPerMinute:pausesPerMinute===null?null:Number(pausesPerMinute.toFixed(2)),
+     deletedCharacters:f.deletedCharacters,deletionRatio:f.deletionRatio,
+     substantialRevisionCount:f.substantialRevisionCount,multilineRevisionCount:f.multilineRevisionCount,
+     longestUninterruptedCharacters:f.longestUninterruptedCharacters},
+    message:"Se observó escritura sostenida, con muy pocas pausas y sin revisiones extensas detectables en "+f.field+". El patrón podría ser compatible con transcripción, pero también con otras formas legítimas de redacción; requiere revisión contextual, no demuestra consulta de otro equipo."
+   });
+  }
+ }
+ return{enabled:!!data.consentAt,consentAt:data.consentAt||null,
+  policy:"Los umbrales de escritura son orientativos y no validados como detector de fraude. Las métricas no afectan la calificación ni constituyen prueba de irregularidad; requieren revisión contextual y posibilidad de aclaración.",
+  tabHiddenCount:tabs,hiddenSeconds:Math.round(Number(parent.hiddenMilliseconds||0)/1000),
+  windowFocusLossCount:blur,windowUnfocusedSeconds:Math.round(Number(parent.focusLossMilliseconds||0)/1000),
+  copyEvents,pasteEvents,pasteAttempts:pasteEvents,dropEvents,blockedPasteAttempts:legacyBlockedPaste,blockedDropAttempts:0,reopenCount:reopens.count||0,fields,alerts,detail:{parent,tools:data.tools||{},reopens}};
+}
+function mvm36PivotEvidence_(item,bank){
+ const p=bank.practical.pivot.rows.map((r,i)=>({...r,Fecha:"2026-"+String(Math.floor(i/24)+1).padStart(2,"0")+"-"+String(i%24+1).padStart(2,"0"),PrecioUnitario:r.Precio}));
+ const fields=["Fecha","Mes","Sucursal","Categoría","Título","Unidades","PrecioUnitario","Importe"],measures=["Unidades","PrecioUnitario","Importe"];
+ if(!measures.includes(item.valueField)||!["sum","avg","count"].includes(item.aggregate))return {...item,total:null,rowTotals:{},colTotals:{}};
+ const rows=fields.includes(item.filterField)?p.filter(r=>item.filterValues.includes(String(r[item.filterField]))):p;
+ const ag=items=>{const s=items.reduce((n,r)=>n+Number(r[item.valueField]||0),0);return item.aggregate==="count"?items.length:item.aggregate==="avg"?(items.length?s/items.length:0):s;};
+ const totals=k=>fields.includes(k)?Object.fromEntries([...new Set(rows.map(r=>String(r[k])))].map(v=>[v,ag(rows.filter(r=>String(r[k])===v))])):{};
+ return {...item,visibleRows:rows.length,total:ag(rows),rowTotals:totals(item.rowField),colTotals:totals(item.colField)};
+}
+function mvm36AuditEvent_(r,event,now,detail={}){
+ r.counts=r.counts||{};r.counts[event]=(r.counts[event]||0)+1;
+ r.audit=r.audit||[];r.audit.push({event,at:now,...detail});if(r.audit.length>150)r.audit=r.audit.slice(-150);
+}
 function mvm36Report_(r,bank){
- const s=r.state,closed=s.closed,code=r.invitationCode,person=closed.identification?.answer||{},a=closed.objective?.answer?.answers||[],objective=new Map(a.map(x=>[x.id,x.selected]));
- const pivot=Object.fromEntries((closed.pivot?.answer?.exercises||[]).map(x=>[x.id,x]));
- const sources={};let parent=null;
- for(const tel of Object.values(r.telemetry||{}))for(const [name,v] of Object.entries(tel.sources||{})){if(name==="evaluation")parent=v;else sources[name]=v;}
- if(parent)sources.evaluation=parent;
- const sum=k=>Object.values(sources).reduce((n,x)=>n+(x[k]||0),0);
- const counts={};for(const e of r.audit||[])counts[e.event]=(counts[e.event]||0)+1;
- const alerts=[];for(const [c,k] of [["TAB_HIDDEN","visibilityHiddenCount"],["FOCUS_LOST","focusLossCount"],["PASTE_DETECTED","pasteAttempts"],["COPY_DETECTED","copyAttempts"]])if(sum(k))alerts.push({code:c,count:sum(k)});
- if(!Object.keys(sources).length)alerts.push({code:"MONITORING_MISSING",count:1});
- return {schema:"MVM_PILOT_16",assessment:"Asesor de Métricas · MVM V36",examId:bank.examId,bankRef:r.bankRef,attemptId:s.attemptId,candidate:{name:person.name||"Sin nombre",email:person.email||""},startedAt:new Date(s.startedAt).toISOString(),finishedAt:new Date(s.finishedAt).toISOString(),finishReason:s.reason,timeLimitSeconds:bank.durationSeconds,elapsedSeconds:Math.round((s.finishedAt-s.startedAt)/1000),pilot:{invitationCode:code,mode:"PRUEBA_DE_USABILIDAD",feedback:r.feedback||{}},knowledge:bank.objective.map(q=>{const v=objective.get(q.id);return {id:q.id,number:bank.objective.indexOf(q)+1,question:q.prompt,selected:Number.isInteger(v)?"ABCD"[v]:null,selectedText:Number.isInteger(v)?q.options[v]:null};}),openCases:bank.open.map((c,i)=>({id:c.id,number:i+1,title:c.title,prompt:c.prompt,response:closed["open_"+(i+1)]?.answer?.response||""})),practical:{excel:closed.excel?{formulas:closed.excel.answer.formulas,rowOrder:closed.excel.answer.rowOrder,score:null}:null,pivot:closed.pivot?{snapshots:pivot}:null,sql:closed.sql?.answer||null,python:closed.python?.answer||null},monitoring:{enabled:true,source:"CLIENT_ADVISORY",pasteEvents:sum("pasteAttempts"),copyEvents:sum("copyAttempts"),tabHiddenCount:sum("visibilityHiddenCount"),windowFocusLossCount:sum("focusLossCount"),alerts,byStage:r.telemetry||{}},serverSession:{version:36,receivedAt:new Date(r.submittedAt).toISOString(),counts,events:r.audit||[],deadlineAt:new Date(s.deadline).toISOString()},review:{status:"PENDIENTE_DE_REVISION",objective:r.score?.objective||mvm36ObjectiveScore_(s,bank),note:"No confiar en notas de navegador; verificar fórmulas, pivotes y código con banco privado fijado."}};
+ const s=r.state,c=s.closed,code=r.invitationCode,person=c.identification?.answer||{},obj=new Map((c.objective?.answer?.answers||[]).map(x=>[x.id,x.selected]));
+ const pivot=Object.fromEntries((c.pivot?.answer?.exercises||[]).map(x=>[x.id,mvm36PivotEvidence_(x,bank)]));
+ const sources={};
+ for(const tel of Object.values(r.telemetry||{}))for(const [name,v] of Object.entries(tel.sources||{}))sources[name]=v;
+ const counts={};for(const e of r.audit||[])counts[e.event]=(counts[e.event]||0)+1;Object.assign(counts,r.counts||{});
+ const stamp=t=>new Date(t).toISOString(),tools=Object.fromEntries(Object.entries(sources).filter(([n])=>n!=="evaluation").map(([n,v])=>[n,{cumulative:v}]));
+ const monitoring=mvm36MonitoringSummary_({consentAt:stamp(s.startedAt),parent:sources.evaluation||{},tools,reopens:{count:(counts.RESUMED||0)+(counts.TAB_CHANGED||0),events:(r.audit||[]).filter(e=>["RESUMED","TAB_CHANGED"].includes(e.event)).map(e=>({type:e.event,at:stamp(e.at)}))}});
+ if(!Object.keys(sources).length)monitoring.alerts.push({code:"MONITORING_MISSING",level:"revisar",count:1,message:"No se recibieron métricas; revisar incidencia técnica."});
+ for(const [key,msg] of [["OTHER_BROWSER_BLOCKED","Otro navegador intentó acceder a esta sesión."],["CONCURRENT_TAB_BLOCKED","Otra pestaña intentó acceder simultáneamente."]])if(counts[key])monitoring.alerts.push({code:key,level:"revisar",count:counts[key],message:msg+" El evento no demuestra fraude."});
+ monitoring.source="CLIENT_ADVISORY";monitoring.byStage=r.telemetry||{};
+ const f=c.excel?.answer?.formulas||{},excel=c.excel?{formulas:f,rowOrder:c.excel.answer.rowOrder,score:null,answers:Object.fromEntries(["J3","J4","J5","J7"].map(k=>[k,{input:f[k]||"",evaluated:null}])),helperFormulas:Object.entries(f).filter(([k,v])=>!["J3","J4","J5","J7"].includes(k)&&v.startsWith("=")).map(([cell,input])=>({cell,input,evaluated:null})),formulaChecks:[],completedAt:stamp(c.excel.closedAt)}:null;
+ const exec=k=>c[k]?{...c[k].answer,completedAt:stamp(c[k].closedAt)}:null;
+ return {schema:"MVM_PILOT_16",assessment:"Asesor de Métricas · MVM V36",examId:bank.examId,bankRef:r.bankRef,attemptId:s.attemptId,candidate:{name:person.name||"Sin nombre",email:person.email||""},createdAt:stamp(s.startedAt),startedAt:stamp(s.startedAt),finishedAt:stamp(s.finishedAt),finishReason:s.reason,timeLimitSeconds:bank.durationSeconds,elapsedSeconds:Math.round((s.finishedAt-s.startedAt)/1000),overtime:false,pilot:{invitationCode:code,mode:"PRUEBA_DE_USABILIDAD",integrityAcknowledgedAt:stamp(s.startedAt),feedback:r.feedback||{}},progress:{stage:s.stage,objectiveAnswered:[...obj.values()].filter(Number.isInteger).length,casesAnswered:[1,2,3].filter(n=>c["open_"+n]?.answer?.response?.trim()).length},knowledge:bank.objective.map((q,i)=>{const v=obj.get(q.id);return {id:q.id,number:i+1,question:q.prompt,selected:Number.isInteger(v)?"ABCD"[v]:null,selectedText:Number.isInteger(v)?q.options[v]:null};}),openCases:bank.open.map((q,i)=>({id:q.id,number:i+1,title:q.title,prompt:q.prompt,response:c["open_"+(i+1)]?.answer?.response||""})),practical:{excel,pivot:c.pivot?{snapshots:pivot,completedAt:stamp(c.pivot.closedAt),completed:!c.pivot.partial}:null,sql:exec("sql"),python:exec("python")},practicalDrafts:Object.fromEntries(["excel","pivot","sql","python"].filter(k=>c[k]?.partial).map(k=>[k,c[k].answer])),monitoring,serverSession:{version:36,startedAt:stamp(s.startedAt),receivedAt:stamp(r.submittedAt),lastCheckpointAt:s.updatedAt?stamp(s.updatedAt):null,counts,events:(r.audit||[]).map(e=>({...e,at:stamp(e.at)})),deadlineAt:stamp(s.deadline)},review:{status:"PENDIENTE_DE_REVISION",objective:r.score?.objective||mvm36ObjectiveScore_(s,bank),note:"Evidencias de ejecución de cliente orientativas; fórmulas, tablas y código deben verificarse de forma independiente con banco privado fijado."}};
 }
 function mvm36SandboxStep_(record,bank,identity,req,now,newAttempt){
  const action=req.action;
@@ -503,32 +604,32 @@ function mvm36SandboxStep_(record,bank,identity,req,now,newAttempt){
  if(!r&&action!=="claim")throw Error("CLAIM_REQUIRED");
  if(!r){
   const state=mvm36Create_(bank,newAttempt,now);
-  const fresh={schema:"MVM36_SANDBOX_1",bankRef:MVM36_BANK_REF,browserHash:identity.browserHash,tabHash:identity.tabHash,leaseUntil:now+120000,state,audit:[{event:"FIRST_START",at:now}]};
+  const fresh={schema:"MVM36_SANDBOX_1",bankRef:MVM36_BANK_REF,browserHash:identity.browserHash,tabHash:identity.tabHash,leaseUntil:now+120000,state,audit:[{event:"FIRST_START",at:now}],counts:{FIRST_START:1}};
   return {record:fresh,reply:{status:"CLAIMED",attemptId:state.attemptId,view:mvm36StageView_(state,bank,now)}};
  }
  if(r.bankRef!==MVM36_BANK_REF)throw Error("SESSION_BANK_MISMATCH");
- if(r.browserHash!==identity.browserHash)throw Error("OTHER_BROWSER");
- if(r.tabHash!==identity.tabHash&&r.leaseUntil>now)throw Error("CONCURRENT_TAB");
+ if(r.browserHash!==identity.browserHash){mvm36AuditEvent_(r,"OTHER_BROWSER_BLOCKED",now);return {record:r,reply:{ok:false,status:"OTHER_BROWSER"}};}
+ if(r.tabHash!==identity.tabHash&&r.leaseUntil>now){mvm36AuditEvent_(r,"CONCURRENT_TAB_BLOCKED",now);return {record:r,reply:{ok:false,status:"CONCURRENT_TAB"}};}
  if(action!=="claim"&&req.attemptId!==r.state.attemptId)throw Error("ATTEMPT_MISMATCH");
  if(r.submitted)return {record:r,reply:{status:"ALREADY_SUBMITTED",attemptId:r.state.attemptId,receivedAt:r.submittedAt}};
  if(r.state.finished){
-  if(action==="finalize"){r.feedback=mvm36Feedback_(req.answer);r.submitted=true;r.submittedAt=now;r.audit.push({event:"FINAL_DELIVERY",at:now});return {record:r,reply:{status:"RECEIVED",attemptId:r.state.attemptId,receivedAt:now}};}
+  if(action==="finalize"){r.feedback=mvm36Feedback_(req.answer);r.submitted=true;r.submittedAt=now;mvm36AuditEvent_(r,"FINAL_DELIVERY",now);return {record:r,reply:{status:"RECEIVED",attemptId:r.state.attemptId,receivedAt:now}};}
   if(action!=="claim")throw Error("SESSION_CLOSED");
   return {record:r,reply:{status:"FEEDBACK_REQUIRED",attemptId:r.state.attemptId,view:mvm36FeedbackView_(r,now)}};
  }
  if(action==="claim"){
   const event=r.tabHash===identity.tabHash?"RESUMED":"TAB_CHANGED";
-  r.tabHash=identity.tabHash;r.audit.push({event,at:now});
+  r.tabHash=identity.tabHash;mvm36AuditEvent_(r,event,now);
  }else if(action!=="finalize"&&now<r.state.deadline){
   r.state=mvm36Apply_(r.state,bank,req,now);
   if(req.monitor){const telemetry=mvm36Telemetry_(req.monitor);if(telemetry){r.telemetry=r.telemetry||{};const k=req.stage==="open"?"open_"+(req.caseIndex+1):req.stage;r.telemetry[k]=telemetry;}}
-  r.audit.push({event:action==="advance"?"STAGE_CLOSED":"CHECKPOINT",stage:req.stage,caseIndex:req.caseIndex,revision:r.state.revision,at:now});
+  mvm36AuditEvent_(r,action==="advance"?"STAGE_CLOSED":"CHECKPOINT",now,{stage:req.stage,caseIndex:req.caseIndex,revision:r.state.revision});
  }
  if(now>=r.state.deadline||action==="finalize"||MVM36_STAGES[r.state.stage]==="final"){
   r.state=mvm36Finalize_(r.state,bank,now);
   r.score={objective:mvm36ObjectiveScore_(r.state,bank),practical:"PENDING_INDEPENDENT_REVIEW",open:"PENDING_INDEPENDENT_REVIEW"};
-  if(action!=="finalize"||req.answer?.feedback===undefined){r.audit.push({event:"TIME_CLOSED",at:now});return {record:r,reply:{status:"FEEDBACK_REQUIRED",attemptId:r.state.attemptId,view:mvm36FeedbackView_(r,now)}};}
-  r.feedback=mvm36Feedback_(req.answer);r.submitted=true;r.submittedAt=now;r.audit.push({event:"FINAL_DELIVERY",at:now});
+  if(action!=="finalize"||req.answer?.feedback===undefined){mvm36AuditEvent_(r,"TIME_CLOSED",now);return {record:r,reply:{status:"FEEDBACK_REQUIRED",attemptId:r.state.attemptId,view:mvm36FeedbackView_(r,now)}};}
+  r.feedback=mvm36Feedback_(req.answer);r.submitted=true;r.submittedAt=now;mvm36AuditEvent_(r,"FINAL_DELIVERY",now);
   return {record:r,reply:{status:"RECEIVED",attemptId:r.state.attemptId,receivedAt:now}};
  }
  r.leaseUntil=now+120000;
