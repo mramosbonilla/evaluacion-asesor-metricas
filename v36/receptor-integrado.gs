@@ -687,7 +687,7 @@ function mvm36SandboxAction_(params){
 
 function mvm36EstadoMigracion(){const prop=PropertiesService.getScriptProperties();const result={};for(const code of ["P02","P03","P04","P05"])result[code]=prop.getProperty("MVM_SESSION_"+code)?"SESION_V35_EXISTENTE":"SIN_SESION_V35";console.log(JSON.stringify(result));return result;}
 
-function doPost(e){const p=e&&e.parameter||{};if(/^v36_(claim|save|advance|finalize)$/.test(String(p.action||"")))return mvm36SandboxAction_(p);return mvm35DoPost_(e);}
+function doPost(e){const p=e&&e.parameter||{};if(/^v36_(claim|save|advance|navigate|finalize)$/.test(String(p.action||"")))return mvm36SandboxAction_(p);return mvm35DoPost_(e);}
 function mvm36ActivarPilotos(){const prop=PropertiesService.getScriptProperties(),lock=LockService.getScriptLock();lock.waitLock(25000);try{const cfg=mvmPrivateConfig_(prop);mvm36BankFromPrivate_(cfg);const results={};for(const code of ["P02","P03","P04","P05"]){if(prop.getProperty("MVM_SESSION_"+code)||mvmReadJson_(cfg,"entregas/2026/"+code+".json"))throw Error("LEGACY_SESSION_EXISTS_"+code);results[code]="LISTO";}prop.setProperty("MVM36_PILOTS_ENABLED","YES");console.log(JSON.stringify(results));return results;}finally{lock.releaseLock();}}
 function mvm36DesactivarPilotos(){PropertiesService.getScriptProperties().deleteProperty("MVM36_PILOTS_ENABLED");return "DESACTIVADO";}
 
