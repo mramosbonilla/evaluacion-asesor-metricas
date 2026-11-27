@@ -3,12 +3,12 @@ var caseIndex=0;
 (()=>{
 "use strict";
 const $=id=>document.getElementById(id),cfg=window.MVM36_CONFIG||{},qs=new URLSearchParams(location.search);
-const invitation={code:(qs.get("tester")||"").toUpperCase(),token:(qs.get("token")||"").toLowerCase()};
-const allowed=cfg.enabled===true&&/^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(cfg.endpoint||"")&&(invitation.code==="T36"||/^P0[2-5]$/.test(invitation.code))&&/^[a-f0-9]{64}$/.test(invitation.token);
+const invitation={code:qs.get("tester")||"",token:qs.get("token")||""};
+const allowed=cfg.enabled===true&&/^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(cfg.endpoint||"")&&(/^P0[02345]$/.test(invitation.code))&&/^[a-f0-9]{64}$/.test(invitation.token);
 const stages=["identification","objective","excel","pivot","sql","python","open","final"];
 const labels=["Identificación","Preguntas de opción múltiple","Excel · fórmulas","Excel · tablas dinámicas","SQL","Python","Preguntas abiertas","Finalización"];
 const tools=["excel","pivot","sql","python"];
-let view=null,attemptId=null,offset=0,busy=false,complete=false,frame=null,answer=null,lease=null,exclusive=false,mon={},lastSave=0,dirty=false;
+let view=null,attemptId=null,offset=0,busy=false,complete=false,frame=null,answer=null,lease=null,exclusive=false,mon={},lastSave=0,dirty=false,questionIndex=0;
 function nonce(){return Array.from(crypto.getRandomValues(new Uint8Array(24)),b=>b.toString(16).padStart(2,"0")).join("");}
 function identity(){let b=localStorage.getItem("mvm36-browser-"+invitation.code);if(!/^[a-f0-9]{48}$/.test(b||"")){b=nonce();localStorage.setItem("mvm36-browser-"+invitation.code,b);}const store=exclusive?localStorage:sessionStorage,key="mvm36-tab-"+invitation.code;let t=store.getItem(key);if(!/^[a-f0-9]{48}$/.test(t||"")){t=nonce();store.setItem(key,t);}return {browser:b,tab:t};}
 function lock(){if(!navigator.locks?.request)return Promise.resolve(true);if(!lease)lease=new Promise(resolve=>{navigator.locks.request("mvm36-"+invitation.code,{ifAvailable:true},l=>{if(!l){lease=null;resolve(false);return;}exclusive=true;resolve(true);return new Promise(()=>{});}).catch(()=>{lease=null;resolve(false);});});return lease;}
@@ -27,7 +27,7 @@ function request(action,payload={}){
 function el(tag,text,cls){const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(cls)e.className=cls;return e;}
 function button(label,fn){const b=el("button",label,"btn");b.type="button";b.onclick=fn;return b;}
 function status(s){$("status").textContent=s;}
-function nav(){const current=view?stages.indexOf(view.stage):-1;$("nav").replaceChildren(el("div","Bienvenida","step"+(current<0&&!complete?" active":"")));labels.forEach((label,i)=>{$("nav").append(el("div",(i<current?"✓ ":"")+label,"step"+(i===current?" active":"")+(i>=2&&i<=5?" nav-tools":"")));});}
+function nav(){const current=complete?stages.length:view?stages.indexOf(view.stage):-1;const progress=$("progress");if(progress){const percent=complete?100:Math.round((current+1)/stages.length*100);progress.style.width=percent+"%";progress.parentElement?.setAttribute("aria-valuenow",String(percent));}$("nav").replaceChildren(el("div","Bienvenida","step"+(current<0&&!complete?" active":"")));labels.forEach((label,i)=>{$("nav").append(el("div",(i<current?"✓ ":"")+label,"step"+(i===current?" active":"")+(i>=2&&i<=5?" nav-tools":"")));});}
 function draftKey(){return attemptId&&view?"mvm36-draft-"+attemptId+"-"+view.stage+"-"+view.caseIndex:null;}
 function localGet(){const k=draftKey();try{return k?JSON.parse(localStorage.getItem(k)||"null"):null}catch(e){return null}}
 function localPut(v){const k=draftKey();if(k)try{localStorage.setItem(k,JSON.stringify(v));}catch(e){status("No se pudo guardar la copia local.");}}
@@ -37,42 +37,46 @@ window.MVM36Stage={get(kind){return view?.stage===kind?clone(view.content):null}
 function serverSimDraft(kind){
  const d=view?.draft;if(!d)return null;
  if(kind==="excel"){
-  const cells={};const base=[["ID","Canal","Título del libro","Zona","Órdenes","Estado","Mes"],...(d.rowOrder?d.rowOrder.map(id=>view.content.rows.find(r=>String(r.id)===String(id))):view.content.rows).map(r=>[r.id,r.canal,r.titulo,r.region,r.pedidos,r.estado,r.mes])];base.forEach((r,i)=>r.forEach((v,j)=>cells[String.fromCharCode(65+j)+(i+1)]=String(v)));Object.assign(cells,{"I2":"Indicador","J2":"Resultado","I3":"Órdenes creadas","I4":"Órdenes canceladas","I5":"Tasa cancelación","I7":"Brecha entre canales"},d.formulas||{});return {cells,selected:"A1"};
+  const cells={};const base=[["ID","Canal","Título del libro","Zona","Órdenes","Estado","Mes"],...(d.rowOrder?d.rowOrder.map(id=>view.content.rows.find(r=>String(r.id)===String(id))):view.content.rows).map(r=>[r.id,r.canal,r.titulo,r.region,r.pedidos,r.estado,r.mes])];base.forEach((r,i)=>r.forEach((v,j)=>cells[String.fromCharCode(65+j)+(i+1)]=String(v)));Object.assign(cells,{"I2":"Indicador","J2":"Resultado","I3":"Órdenes creadas","I4":"Órdenes canceladas","I5":"Tasa cancelación","I7":"Brecha entre canales"},d.formulas||{});return {cells,selected:d.layout?.selected||"A1",filterChannel:d.layout?.filterChannel||"Todos",cellFormats:d.layout?.cellFormats||{}};
  }
- if(kind==="pivot"){const snapshots=Object.fromEntries((d.exercises||[]).map(x=>[x.id,x]));return {snapshots,activeExercise:Math.min(3,Object.keys(snapshots).length+1),builder:{},answers:{},filterValues:[]};}
- return {code:d.code||"",text:d.code||"",value:d.code||""};
+ if(kind==="pivot"){const snapshots=Object.fromEntries((d.exercises||[]).map(x=>[x.id,x])),w=d.working;return {snapshots,activeExercise:w?.id||Math.min(3,Object.keys(snapshots).length+1),builder:w?Object.fromEntries(["rowField","colField","valueField","aggregate","filterField","sortOrder"].map(k=>[k,w[k]])):{},answers:w?.answers||{},filterValues:w?.filterValues||[]};}
+ return {code:d.code||"",lastExecution:d.lastExecution||null,runCount:d.executions||0,engineReady:d.engineReady===true};
 }
 window.MVMDraft={get(kind){if(view?.stage!==kind)return null;return localGet()?.sim||serverSimDraft(kind)},put(kind,data){if(view?.stage!==kind||complete)return;const old=localGet()?.sim;if(JSON.stringify(old)===JSON.stringify(data))return;localPut({sim:data});dirty=true;}};
 function draftAnswer(){if(!view)return {};if(!tools.includes(view.stage))return answer||{};
  const d=localGet()?.sim||serverSimDraft(view.stage)||{};
- if(view.stage==="excel")return {rowOrder:Array.from({length:view.content.rows.length},(_,i)=>String(d.cells?.["A"+(i+2)]??view.content.rows[i].id)),formulas:Object.fromEntries(Object.entries(d.cells||{}).filter(([k])=>/^[H-K][1-9][0-9]*$/.test(k)&&!["I2","J2","I3","I4","I5","I7"].includes(k)).map(([k,v])=>[k,String(v)]))};
- if(view.stage==="pivot")return {exercises:Object.values(d.snapshots||{})};
- return {code:String(d.code??d.text??d.value??"")};
+ if(view.stage==="excel")return {layout:{selected:d.selected,cellFormats:d.cellFormats,filterChannel:d.filterChannel},rowOrder:Array.from({length:view.content.rows.length},(_,i)=>String(d.cells?.["A"+(i+2)]??view.content.rows[i].id)),formulas:Object.fromEntries(Object.entries(d.cells||{}).filter(([k])=>/^[H-K][1-9][0-9]*$/.test(k)&&!["I2","J2","I3","I4","I5","I7"].includes(k)).map(([k,v])=>[k,String(v)]))};
+ if(view.stage==="pivot")return {exercises:Object.values(d.snapshots||{}),working:d.activeExercise?{id:d.activeExercise,...(d.builder||{}),answers:d.answers||{},filterValues:d.filterValues||[]}:null};
+ return {code:String(d.code??d.text??d.value??""),lastExecution:d.lastExecution||null,executions:Number(d.runCount)||0,engineReady:d.engineReady===true};
 }
-function telemetry(){const p=window.MVMInteractionMonitor?.snapshot?.();return {...mon,...(p?{evaluation:p}:{})}}
-function fromView(r,rerender=true){if(!r.view){complete=true;view=null;frame=null;render();status("Entrega confirmada por el servidor.");return;}attemptId=r.attemptId;view=r.view;caseIndex=view.caseIndex;offset=view.serverNow-Date.now();if(rerender)render();lastSave=Date.now();}
-function welcome(){const body=$("body");body.replaceChildren(el("h2","Evaluación técnica · Asesor de Métricas"),el("p","Tienes 75 minutos. Responde las preguntas de opción múltiple, completa los simuladores y las preguntas abiertas. Al cerrar una etapa no podrás regresar. El tiempo continúa si cierras la página."),el("p","No utilices IA ni ayuda externa. Registramos indicadores de interacción dentro de la evaluación; las alertas son orientativas y no prueban por sí solas una falta."));const lab=el("label"),check=el("input");check.type="checkbox";lab.append(check,document.createTextNode(" Acepto las reglas de integridad"));body.append(lab,button("Comenzar o reanudar",async()=>{if(!check.checked){status("Debes aceptar las reglas.");return;}await claim();}));if(!allowed){body.append(el("p","Entorno de ensayo deshabilitado. No uses invitaciones de producción.","notice"));}nav();}
+function monitorKey(){return attemptId?"mvm36-monitor-"+attemptId:null;}
+function monitorLoad(){try{return JSON.parse(localStorage.getItem(monitorKey())||"{}");}catch(e){return {};}}
+function monitorSave(name,snapshot){if(!attemptId||!snapshot||snapshot.source!==name)return;try{const data=monitorLoad();data[name]=snapshot;localStorage.setItem(monitorKey(),JSON.stringify(data));}catch(e){}}
+window.MVM36Monitoring={get(name){return view?.stage===name?monitorLoad()[name]||null:null;}};
+function telemetry(){const p=window.MVMInteractionMonitor?.snapshot?.();if(p)monitorSave("evaluation",p);return {...monitorLoad(),...mon,...(p?{evaluation:p}:{})}}
+function fromView(r,rerender=true){if(!r.view){complete=true;view=null;frame=null;render();status("Entrega confirmada por el servidor.");return;}const changedAttempt=attemptId!==r.attemptId;attemptId=r.attemptId;view=r.view;caseIndex=view.caseIndex;if(changedAttempt){mon={};const old=monitorLoad().evaluation;const m=window.MVMInteractionMonitor;if(old)m?.restore?.(old);m?.start?.();if(m)m.onChange=x=>monitorSave("evaluation",x);}offset=view.serverNow-Date.now();if(rerender)render();lastSave=Date.now();}
+function welcome(){const body=$("body");body.innerHTML="<h2>Evaluación técnica · Asesor de Métricas</h2><p>Lee las instrucciones y acepta las reglas de integridad. Después pulsa <strong>Comenzar evaluación</strong> al final de esta página. El reloj de 75 minutos empezará en ese momento y pasarás automáticamente a Identificación.</p><div class=\"question\"><h3>Instrucciones generales</h3><p>La evaluación dispone de <strong>75 minutos</strong>. Resuelve las preguntas y las actividades de manera individual. Puedes guardar los avances dentro de cada herramienta y continuar con las siguientes secciones.</p><p>Al terminar, pulsa Guardar y enviar evaluación para entregar tus respuestas.</p></div><div class=\"question\" style=\"border:2px solid #c87923;background:#fff8eb\"><h3>IMPORTANTE · Prueba individual de conocimientos</h3><p><strong>Esta evaluación comprueba tus conocimientos y razonamiento, no tu habilidad para obtener respuestas de herramientas de inteligencia artificial.</strong> No se permite consultar ChatGPT, Copilot, Gemini, otras IA, sitios web, personas o dispositivos externos para recibir, copiar y pegar, o transcribir respuestas. Debes resolver cada actividad por tus propios medios, utilizando únicamente los datos y herramientas incorporados en esta evaluación. <strong>Incumplir estas reglas constituye una falta a la integridad de la prueba.</strong></p><label style=\"display:flex;gap:10px;align-items:flex-start\"><input id=\"integrityAgreement\" type=\"checkbox\" style=\"margin-top:4px\"> He leído las reglas, me comprometo a resolver la evaluación sin ayuda externa y acepto el registro de mis respuestas e interacciones dentro de la prueba con fines de integridad.</label></div><p id=\"beginPilotHint\" role=\"status\" aria-live=\"polite\" style=\"font-size:14px;font-weight:600;margin:12px 0 4px\"></p><button class=\"btn\" id=\"beginPilot\" type=\"button\" disabled style=\"display:block;width:100%;padding:15px 20px;font-size:18px;font-weight:700;margin-top:16px\">Comenzar evaluación · 75 minutos</button>";const check=$("integrityAgreement"),start=$("beginPilot"),hint=$("beginPilotHint");function refresh(){start.disabled=!allowed||!check.checked;start.style.opacity=start.disabled?"0.55":"1";start.style.cursor=start.disabled?"not-allowed":"pointer";hint.textContent=!allowed?"Esta evaluación todavía no está disponible. Contacta al responsable del proceso.":check.checked?"Todo listo. Pulsa el botón para iniciar el cronómetro y continuar.":"Marca la casilla de aceptación de las reglas para habilitar el botón.";}check.addEventListener("change",refresh);start.onclick=async()=>{if(!allowed||!check.checked||busy)return;start.disabled=true;await claim();if(!view&&!complete)refresh();};refresh();status(allowed?"Evaluación disponible":"Evaluación no disponible");nav();}
 function render(){
  const body=$("body");frame=null;body.replaceChildren();nav();document.body.classList.toggle("tool-wide",!!view&&tools.includes(view.stage));
  if(complete){body.append(el("h2","Entrega confirmada"),el("p","El servidor confirmó la recepción. Puedes cerrar la ventana."));return;}
  if(!view){welcome();return;}
  const s=view.stage,d=localGet()?.answer||view.draft||{};
  body.append(el("h2",labels[stages.indexOf(s)]));
- const saveLocal=()=>{localPut({answer});dirty=true;};
+ const saveLocal=()=>{localPut({answer,questionIndex});dirty=true;};
  if(s==="identification"){
   answer={name:d.name||"",email:d.email||""};for(const k of ["name","email"]){const l=el("label",k==="name"?"Nombre":"Correo"),input=el("input");input.type=k==="email"?"email":"text";input.value=answer[k];input.oninput=()=>{answer[k]=input.value;saveLocal()};l.append(input);body.append(l);}
  }else if(s==="objective"){
   const arr=(d.answers||[]).map(x=>x&&typeof x==="object"?x.selected:x);answer={answers:Array.from({length:15},(_,i)=>arr[i]??null)};
-  let qIndex=0;const question=el("div",undefined,"question"),controls=el("div",undefined,"actions"),counter=el("p",undefined,"muted");counter.setAttribute("aria-live","polite");body.append(counter,question,controls);const updateCount=()=>{counter.textContent=answer.answers.filter(x=>x!==null).length+" de "+view.content.length+" respondidas. Selecciona una opción y navega con los botones inferiores.";};
-  const show=()=>{const q=view.content[qIndex];question.replaceChildren(el("h3","Pregunta "+(qIndex+1)+" de "+view.content.length),el("p",q.prompt));q.options.forEach((opt,i)=>{const l=el("label"),x=el("input");x.type="radio";x.name="option";x.value=String(i);x.checked=answer.answers[qIndex]===i;x.onchange=()=>{answer.answers[qIndex]=i;saveLocal();updateCount()};l.append(x,document.createTextNode(String.fromCharCode(65+i)+". "+opt));question.append(l)});const prev=button("← Pregunta anterior",()=>{if(qIndex>0){qIndex--;show()}}),next=button("Siguiente pregunta →",()=>{if(qIndex<view.content.length-1){qIndex++;show()}});prev.disabled=qIndex===0;next.disabled=qIndex===view.content.length-1;controls.replaceChildren(prev,next);updateCount();};show();
+  questionIndex=Math.max(0,Math.min(view.content.length-1,Number(localGet()?.questionIndex)||0));let qIndex=questionIndex;const question=el("div",undefined,"question"),controls=el("div",undefined,"actions"),counter=el("p",undefined,"muted");counter.setAttribute("aria-live","polite");body.append(counter,question,controls);const updateCount=()=>{counter.textContent=answer.answers.filter(x=>x!==null).length+" de "+view.content.length+" respondidas. Selecciona una opción y navega con los botones inferiores.";};
+  const show=()=>{questionIndex=qIndex;saveLocal();const q=view.content[qIndex];question.replaceChildren(el("h3","Pregunta "+(qIndex+1)+" de "+view.content.length),el("p",q.prompt));q.options.forEach((opt,i)=>{const l=el("label"),x=el("input");x.type="radio";x.name="option";x.value=String(i);x.checked=answer.answers[qIndex]===i;x.onchange=()=>{answer.answers[qIndex]=i;saveLocal();updateCount()};l.append(x,document.createTextNode(String.fromCharCode(65+i)+". "+opt));question.append(l)});const prev=button("← Pregunta anterior",()=>{if(qIndex>0){qIndex--;show()}}),next=button(qIndex===view.content.length-1?"Continuar a Excel →":"Siguiente pregunta →",()=>{if(qIndex<view.content.length-1){qIndex++;show()}else if(confirm("¿Cerrar las preguntas de opción múltiple y continuar a Excel? No podrás regresar."))transact("advance",draftAnswer());});prev.disabled=qIndex===0;controls.replaceChildren(prev,next,button("Ir a pregunta 14 · SQL",()=>{qIndex=13;show()}),button("Ir a pregunta 15 · Python",()=>{qIndex=14;show()}));updateCount();};show();
  }else if(s==="open"){
   answer={response:d.response||""};body.append(el("p","Caso "+(view.caseIndex+1)+" de 3"),el("h3",view.content.title),el("p",view.content.prompt));const t=el("textarea");t.id="caseResponse";t.value=answer.response;t.rows=12;t.oninput=()=>{answer.response=t.value;saveLocal()};body.append(t);
  }else if(tools.includes(s)){
-  answer=null;frame=el("iframe");frame.className="v36-frame";frame.title=labels[stages.indexOf(s)];frame.src="./"+s+".html?embed=1&v="+(s==="excel"?"36.3":"36.2");body.append(frame);
+  answer=null;frame=el("iframe");frame.className="v36-frame";frame.title=labels[stages.indexOf(s)];frame.src="./"+s+".html?embed=1&v=36.4";body.append(frame);
  }else if(s==="final"){
   const f=localGet()?.answer?.feedback||d.feedback||{};
   answer={feedback:{...f}};body.append(el("p","La evaluación está cerrada. Los comentarios no modifican tus respuestas ni la calificación."));
-  if(/^P0[2-5]$/.test(invitation.code)){
+  if(/^P0[02345]$/.test(invitation.code)){
    body.append(el("h3","Comentarios sobre la prueba"),el("p","Indica las pruebas que realizaste, incluyendo copia y pegado, uso de IA, salida y reingreso, y cualquier dificultad."));
    for(const [k,label] of [["device","Dispositivo utilizado"],["clarity","Claridad de instrucciones (1–5)"],["navigation","Facilidad de navegación (1–5)"],["integrityTests","Pruebas de integridad realizadas"],["technicalIssues","Problemas técnicos"],["suggestions","Sugerencias"]]){
     const l=el("label",label),x=el(k==="device"||k==="clarity"||k==="navigation"?"input":"textarea");x.value=f[k]||"";x.maxLength=4000;if(k==="clarity"||k==="navigation"){x.type="number";x.min="1";x.max="5";}x.oninput=()=>{answer.feedback[k]=x.value;saveLocal()};l.append(x);body.append(l);
@@ -81,25 +85,26 @@ function render(){
   body.append(button("Entregar evaluación",()=>transact("finalize",answer)));return;
  }
  const controls=el("div",undefined,"actions");controls.append(button("Guardar avance",()=>transact("save",draftAnswer())));
- if(!tools.includes(s))controls.append(button("Confirmar y continuar",()=>{if(confirm("¿Cerrar esta etapa? No podrás regresar."))transact("advance",draftAnswer());}));
+ if(!tools.includes(s)&&s!=="objective")controls.append(button(s==="open"?"Cerrar caso y continuar →":"Continuar a preguntas de opción múltiple →",()=>{if(confirm("¿Cerrar esta etapa? No podrás regresar."))transact("advance",draftAnswer());}));
  controls.append(button("Salir",()=>{if(confirm("El reloj seguirá corriendo. ¿Guardar y salir?"))transact("save",draftAnswer(),true);}));
  body.append(controls);
 }
 async function claim(){if(busy||complete)return;busy=true;status("Verificando sesión…");try{if(!await lock())throw Error("Otra pestaña tiene abierta la evaluación.");const r=await request("claim");window.__MVMMonitoringConsentGranted=true;window.MVMInteractionMonitor?.start?.();fromView(r);status(complete?"Entrega confirmada":"Sesión activa");}catch(e){status(String(e.message||e));}finally{busy=false;}}
 async function transact(action,a,exit=false){
- if(busy||!view||complete)return;
+ if(!view||complete)return;if(busy){status("Guardado anterior en curso. Reintenta al recibir confirmación.");return;}
  busy=true;const current=view;const key=draftKey();status("Guardando en el servidor…");
- try{const r=await request(action,{attemptId,stage:current.stage,caseIndex:current.caseIndex,revision:current.revision,answer:a,monitor:telemetry()});if(action!=="save"||!r.view){if(key&&(!r.view?.expired||current.stage!=="final"))try{localStorage.removeItem(key)}catch(e){};mon={};}fromView(r,action!=="save"||!r.view);dirty=false;status(complete?"Entrega confirmada":"Guardado en servidor");if(exit&&!complete){view=null;render();status("Avance guardado. Puedes cerrar esta ventana.");}}
+ try{const r=await request(action,{attemptId,stage:current.stage,caseIndex:current.caseIndex,revision:current.revision,answer:a,monitor:telemetry()});if(action!=="save"||!r.view){if(key&&(!r.view?.expired||current.stage!=="final"))try{localStorage.removeItem(key)}catch(e){};mon={};}fromView(r,action!=="save"||!r.view||r.view.stage!==current.stage||r.view.caseIndex!==current.caseIndex);dirty=false;status(complete?"Entrega confirmada":"Guardado en servidor");if(exit&&!complete&&view?.stage!=="final"){view=null;render();status("Avance guardado. Puedes cerrar esta ventana.");}}
  catch(e){status(String(e.message||e)+" · El avance local se conserva; reanuda para reconciliar la sesión.");}finally{busy=false;}
 }
 window.addEventListener("message",e=>{
  if(!frame||e.origin!==location.origin||e.source!==frame.contentWindow||!view||complete)return;
- const d=e.data;if(!d)return;if(d.type==="MVM_MONITOR_UPDATE"&&d.snapshot){mon[view.stage]=d.snapshot;return;}
+ const d=e.data;if(!d)return;if(d.type==="MVM_MONITOR_UPDATE"&&d.snapshot&&d.source===view.stage&&d.snapshot.source===view.stage){mon[view.stage]=d.snapshot;monitorSave(view.stage,d.snapshot);return;}
  const submit=(ans)=>{const stage=view.stage,caseNo=view.caseIndex,attempt=attemptId;const wait=()=>{if(!view||complete||view.stage!==stage||view.caseIndex!==caseNo||attemptId!==attempt)return;if(busy){status("Guardando avance previo; continuando al recibir confirmación…");setTimeout(wait,300);return;}transact("advance",ans);};wait();};
  if(d.type==="MVM36_SIM_COMPLETE"&&d.stage===view.stage)submit(d.answer);
- if((d.type==="MVM_SQL_COMPLETE"&&view.stage==="sql")||(d.type==="MVM_PYTHON_COMPLETE"&&view.stage==="python"))submit({code:String(d.code||"")});
+ if((d.type==="MVM_SQL_COMPLETE"&&view.stage==="sql")||(d.type==="MVM_PYTHON_COMPLETE"&&view.stage==="python"))submit({code:String(d.code||""),lastExecution:d.lastExecution||null,executions:Number(d.executions)||0,engineReady:d.engineReady===true});
 });
 setInterval(()=>{if(!view||complete)return;const seconds=Math.max(0,Math.ceil((view.deadline-(view.frozenAt??(Date.now()+offset)))/1000));$("timer").textContent=String(Math.floor(seconds/60)).padStart(2,"0")+":"+String(seconds%60).padStart(2,"0");if(seconds===0&&!busy&&!view.expired)transact("finalize",{});else if(!busy&&view.stage!=="final"&&Date.now()-lastSave>=85000){transact("save",draftAnswer());}},1000);
+window.addEventListener("pagehide",()=>{const p=window.MVMInteractionMonitor?.snapshot?.();if(p)monitorSave("evaluation",p);});
 window.addEventListener("beforeunload",e=>{if(view&&!complete){e.preventDefault();e.returnValue="";}});
 render();
 })();
