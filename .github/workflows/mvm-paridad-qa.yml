@@ -1,0 +1,25 @@
+name: MVM QA navegador
+on:
+  pull_request:
+    branches: [desarrollo-v36]
+    types: [opened, synchronize, reopened]
+permissions:
+  contents: read
+jobs:
+  browser-qa:
+    if: github.head_ref == 'revision-v36-paridad'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Instalar herramientas libres
+        run: |
+          npm install --no-save --package-lock=false playwright@1.51.1
+          npx playwright install --with-deps chromium
+      - name: Navegador Chromium con datos sinteticos
+        run: node qa/mvm-browser-paridad.cjs
