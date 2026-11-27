@@ -1,13 +1,13 @@
 name: MVM QA navegador
 on:
   pull_request:
-    branches: [desarrollo-v36]
+    branches: [main]
     types: [opened, synchronize, reopened]
 permissions:
   contents: read
 jobs:
   browser-qa:
-    if: github.head_ref == 'revision-v36-paridad'
+    if: github.head_ref == 'revision-v36-5'
     runs-on: ubuntu-24.04
     timeout-minutes: 12
     steps:
