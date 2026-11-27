@@ -78,7 +78,7 @@ function render(){
  }else if(s==="open"){
   answer={response:d.response||""};body.append(el("p","Caso "+(view.caseIndex+1)+" de 3"),el("h3",view.content.title),el("p",view.content.prompt));const t=el("textarea");t.id="caseResponse";t.value=answer.response;t.rows=12;t.oninput=()=>{answer.response=t.value;saveLocal()};body.append(t);
  }else if(tools.includes(s)){
-  answer=null;frame=el("iframe");frame.className="v36-frame";frame.title=labels[stages.indexOf(s)];frame.src="./"+s+".html?embed=1&v=36.4";body.append(frame);
+  answer=null;frame=el("iframe");frame.className="v36-frame";frame.title=labels[stages.indexOf(s)];frame.src="./"+s+".html?embed=1&v="+(s==="pivot"?"36.5":"36.4");body.append(frame);
  }else if(s==="final"){
   const f=localGet()?.answer?.feedback||d.feedback||{};
   answer={feedback:{...f}};body.append(el("p","La evaluación está cerrada. Los comentarios no modifican tus respuestas ni la calificación."));
@@ -91,7 +91,7 @@ function render(){
   body.append(button("Entregar evaluación",()=>transact("finalize",answer)));return;
  }
  const controls=el("div",undefined,"actions");controls.append(button("Guardar avance",()=>transact("save",draftAnswer())));
- if(s==="open"&&view.openNavigation){const ix=view.caseIndex,rev=view.revision;const valid=()=>!busy&&view?.stage==="open"&&view.caseIndex===ix&&view.revision===rev&&Date.now()>=caseClickAfter;const prev=button("← Caso anterior",()=>{if(valid())transact("navigate",draftAnswer(),false,ix-1);});prev.disabled=ix===0;controls.append(prev,button(ix<2?"Guardar y continuar al siguiente caso →":"Cerrar los tres casos y continuar →",()=>{if(!valid())return;if(ix<2)transact("navigate",draftAnswer(),false,ix+1);else if(confirm("¿Cerrar los tres casos? Después no podrás volver a editarlos."))transact("advance",draftAnswer());}));caseClickAfter=Date.now()+800;}else if(!tools.includes(s)&&s!=="objective")controls.append(button(s==="open"?"Cerrar caso y continuar →":"Continuar a preguntas de opción múltiple →",()=>{if(Date.now()<caseClickAfter&&s==="open")return;if(confirm("¿Cerrar esta etapa? No podrás regresar."))transact("advance",draftAnswer());}));if(s==="open"&&!view.openNavigation)caseClickAfter=Date.now()+800;
+ if(s==="open"&&view.openNavigation){const ix=view.caseIndex,attempt=attemptId;const valid=()=>!busy&&view?.stage==="open"&&view.caseIndex===ix&&attemptId===attempt&&Date.now()>=caseClickAfter;const prev=button("← Caso anterior",()=>{if(valid())transact("navigate",draftAnswer(),false,ix-1);});prev.disabled=ix===0;controls.append(prev,button(ix<2?"Guardar y continuar al siguiente caso →":"Cerrar los tres casos y continuar →",()=>{if(!valid())return;if(ix<2)transact("navigate",draftAnswer(),false,ix+1);else if(confirm("¿Cerrar los tres casos? Después no podrás volver a editarlos."))transact("advance",draftAnswer());}));caseClickAfter=Date.now()+800;}else if(!tools.includes(s)&&s!=="objective")controls.append(button(s==="open"?"Cerrar caso y continuar →":"Continuar a preguntas de opción múltiple →",()=>{if(Date.now()<caseClickAfter&&s==="open")return;if(confirm("¿Cerrar esta etapa? No podrás regresar."))transact("advance",draftAnswer());}));if(s==="open"&&!view.openNavigation)caseClickAfter=Date.now()+800;
  controls.append(button("Salir",()=>{if(confirm("El reloj seguirá corriendo. ¿Guardar y salir?"))transact("save",draftAnswer(),true);}));
  body.append(controls);
 }
