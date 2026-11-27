@@ -392,7 +392,7 @@ function mvm36StageView_(state,bank,now){
   case "pivot":v.content={rows:p.pivot.rows,tasks:p.pivot.tasks.map(q=>({id:q.id,prompt:q.prompt}))};break;
   case "sql":v.content={products:p.sql.products,sales:p.sql.sales,prompt:p.sql.prompt};break;
   case "python":v.content={rows:p.python.rows,prompt:p.python.prompt};break;
-  case "open":{const c=bank.open[state.caseIndex];v.content={id:c.id,title:c.title,prompt:c.prompt};break;}
+  case "open":{const c=bank.open[state.caseIndex];v.content={id:c.id,title:c.title,prompt:c.prompt};v.openNavigation=true;break;}
   case "final":v.content={readyToSubmit:true};break;
   default:mvm36Fail_("INVALID_STAGE");
  }
@@ -437,14 +437,19 @@ function mvm36Apply_(state,bank,request,now){
  mvm36Guard_(state,bank,now);mvm36Obj_(request);
  const stage=MVM36_STAGES[state.stage];
  if(request.stage!==stage||request.caseIndex!==state.caseIndex||request.revision!==state.revision)mvm36Fail_("STALE_OR_UNAUTHORIZED_STAGE");
- if(!["save","advance"].includes(request.action))mvm36Fail_("INVALID_ACTION");
+ if(!["save","advance","navigate"].includes(request.action))mvm36Fail_("INVALID_ACTION");
  if(stage==="final")mvm36Fail_("USE_FINALIZE");
- const answer=mvm36ValidateAnswer_(stage,state.caseIndex,bank,request.answer,request.action==="save");
+ if(request.action==="navigate"&&(stage!=="open"||!Number.isInteger(request.targetCase)||request.targetCase<0||request.targetCase>2||Math.abs(request.targetCase-state.caseIndex)!==1))mvm36Fail_("STALE_OR_UNAUTHORIZED_STAGE");
+ const answer=mvm36ValidateAnswer_(stage,state.caseIndex,bank,request.answer,request.action==="save"||request.action==="navigate");
  const next=mvm36Copy_(state);next.revision++;next.updatedAt=now;
  if(request.action==="save"){next.draft=answer;return next;}
  const key=stage==="open"?"open_"+(state.caseIndex+1):stage;
- if(Object.prototype.hasOwnProperty.call(next.closed,key))mvm36Fail_("ALREADY_CLOSED");
+ if(stage==="open"&&(request.action==="navigate"||state.caseIndex<2)){
+ next.closed[key]={answer,closedAt:now,revision:next.revision,partial:true};next.caseIndex=request.action==="navigate"?request.targetCase:state.caseIndex+1;next.draft=mvm36Copy_(next.closed["open_"+(next.caseIndex+1)]?.answer||null);return next;
+ }
+ if(stage!=="open"&&Object.prototype.hasOwnProperty.call(next.closed,key))mvm36Fail_("ALREADY_CLOSED");
  next.closed[key]={answer,closedAt:now,revision:next.revision};next.draft=null;
+ if(stage==="open")for(let i=1;i<=3;i++){const k="open_"+i;if(next.closed[k])delete next.closed[k].partial;}
  if(stage==="open"&&state.caseIndex<2)next.caseIndex++;else{next.stage++;next.caseIndex=0;}
  return next;
 }
@@ -453,7 +458,7 @@ function mvm36Finalize_(state,bank,now){
  if(state.examId!==bank.examId)mvm36Fail_("SESSION_BANK_MISMATCH");
  if(now<state.deadline&&MVM36_STAGES[state.stage]!=="final")mvm36Fail_("NOT_AT_FINAL_STAGE");
  const next=mvm36Copy_(state);next.finished=true;next.finishedAt=Math.min(now,state.deadline);next.receivedAt=now;next.reason=now>=state.deadline?"time_expired":"manual";
- if(next.draft){const k=MVM36_STAGES[next.stage]==="open"?"open_"+(next.caseIndex+1):MVM36_STAGES[next.stage];if(!next.closed[k])next.closed[k]={answer:next.draft,closedAt:next.finishedAt,revision:next.revision,partial:true};}
+ if(next.draft){const k=MVM36_STAGES[next.stage]==="open"?"open_"+(next.caseIndex+1):MVM36_STAGES[next.stage];if(!next.closed[k]||MVM36_STAGES[next.stage]==="open")next.closed[k]={answer:next.draft,closedAt:next.finishedAt,revision:next.revision,partial:true};}
  next.draft=null;next.revision++;return next;
 }
 function mvm36ObjectiveScore_(state,bank){
@@ -462,11 +467,14 @@ function mvm36ObjectiveScore_(state,bank){
  return {correct,total:bank.objective.length,points:correct*bank.weights.objective/bank.objective.length};
 }
 
-const MVM36_BANK_REF="a1dbca0bf960a123ec18bc0c6d8b8ccfab6120fc";
+const MVM36_LEGACY_BANK_REF="a1dbca0bf960a123ec18bc0c6d8b8ccfab6120fc";
+const MVM36_BANK_REF="a57c00a04dc04e527e28a1b109a10d84a7c85b3a";
 const MVM36_BANK_PATH="bancos/MVM-ASESOR-2026-V36.json";
 const MVM36_SANDBOX_PATH="v36-sandbox/";
-function mvm36BankFromPrivate_(cfg){
- const url="https://api.github.com/repos/"+cfg.repo+"/contents/"+MVM36_BANK_PATH.split("/").map(encodeURIComponent).join("/")+"?ref="+encodeURIComponent(MVM36_BANK_REF);
+function mvm36BankFromPrivate_(cfg,ref=MVM36_BANK_REF){
+ if(![MVM36_LEGACY_BANK_REF,MVM36_BANK_REF].includes(ref))throw Error("SESSION_BANK_MISMATCH");
+ const path=ref===MVM36_LEGACY_BANK_REF?MVM36_BANK_PATH:"bancos/MVM-ASESOR-2026-V36.5.json";
+ const url="https://api.github.com/repos/"+cfg.repo+"/contents/"+path.split("/").map(encodeURIComponent).join("/")+"?ref="+encodeURIComponent(ref);
  const r=mvmFetch_(url,{method:"get",headers:mvmApiHeaders_(cfg.token)});
  if(r.status!==200)throw Error("PRIVATE_BANK_UNAVAILABLE");
  const raw=Utilities.newBlob(Utilities.base64Decode(String(r.data.content||"").replace(/\s/g,""))).getDataAsString("UTF-8");
@@ -599,7 +607,7 @@ function mvm36Report_(r,bank){
 }
 function mvm36SandboxStep_(record,bank,identity,req,now,newAttempt){
  const action=req.action;
- if(!["claim","save","advance","finalize"].includes(action))throw Error("INVALID_ACTION");
+ if(!["claim","save","advance","navigate","finalize"].includes(action))throw Error("INVALID_ACTION");
  const r=record?mvm36Copy_(record):null;
  if(!r&&action!=="claim")throw Error("CLAIM_REQUIRED");
  if(!r){
@@ -607,7 +615,7 @@ function mvm36SandboxStep_(record,bank,identity,req,now,newAttempt){
   const fresh={schema:"MVM36_SANDBOX_1",bankRef:MVM36_BANK_REF,browserHash:identity.browserHash,tabHash:identity.tabHash,leaseUntil:now+120000,state,audit:[{event:"FIRST_START",at:now}],counts:{FIRST_START:1}};
   return {record:fresh,reply:{status:"CLAIMED",attemptId:state.attemptId,view:mvm36StageView_(state,bank,now)}};
  }
- if(r.bankRef!==MVM36_BANK_REF)throw Error("SESSION_BANK_MISMATCH");
+ if(![MVM36_LEGACY_BANK_REF,MVM36_BANK_REF].includes(r.bankRef))throw Error("SESSION_BANK_MISMATCH");
  if(r.browserHash!==identity.browserHash){mvm36AuditEvent_(r,"OTHER_BROWSER_BLOCKED",now);return {record:r,reply:{ok:false,status:"OTHER_BROWSER"}};}
  if(r.tabHash!==identity.tabHash&&r.leaseUntil>now){mvm36AuditEvent_(r,"CONCURRENT_TAB_BLOCKED",now);return {record:r,reply:{ok:false,status:"CONCURRENT_TAB"}};}
  if(action!=="claim"&&req.attemptId!==r.state.attemptId)throw Error("ATTEMPT_MISMATCH");
@@ -623,7 +631,7 @@ function mvm36SandboxStep_(record,bank,identity,req,now,newAttempt){
  }else if(action!=="finalize"&&now<r.state.deadline){
   r.state=mvm36Apply_(r.state,bank,req,now);
   if(req.monitor){const telemetry=mvm36Telemetry_(req.monitor);if(telemetry){r.telemetry=r.telemetry||{};const k=req.stage==="open"?"open_"+(req.caseIndex+1):req.stage;r.telemetry[k]=telemetry;}}
-  mvm36AuditEvent_(r,action==="advance"?"STAGE_CLOSED":"CHECKPOINT",now,{stage:req.stage,caseIndex:req.caseIndex,revision:r.state.revision});
+  mvm36AuditEvent_(r,action==="navigate"?"CASE_NAVIGATION":action==="advance"?"STAGE_CLOSED":"CHECKPOINT",now,{stage:req.stage,caseIndex:req.caseIndex,revision:r.state.revision});
  }
  if(now>=r.state.deadline||action==="finalize"||MVM36_STAGES[r.state.stage]==="final"){
   r.state=mvm36Finalize_(r.state,bank,now);
@@ -634,7 +642,7 @@ function mvm36SandboxStep_(record,bank,identity,req,now,newAttempt){
  }
  r.leaseUntil=now+120000;
  if(r.audit.length>150)r.audit=r.audit.slice(-150);
- return {record:r,reply:{status:action==="claim"?"CLAIMED":action==="save"?"SAVED":"ADVANCED",attemptId:r.state.attemptId,view:mvm36StageView_(r.state,bank,now)}};
+ return {record:r,reply:{status:action==="claim"?"RESUMED":action==="save"?"SAVED":"ADVANCED",attemptId:r.state.attemptId,view:mvm36StageView_(r.state,bank,now)}};
 }
 function mvm36SandboxAction_(params){
  const nonce=String(params.nonce||"").slice(0,100);
@@ -648,11 +656,12 @@ function mvm36SandboxAction_(params){
   const req=JSON.parse(raw);req.action=String(params.action||"").replace(/^v36_/,"");
   lock.waitLock(25000);
   try{
-   const cfg=mvmPrivateConfig_(prop),bank=mvm36BankFromPrivate_(cfg);
+   const cfg=mvmPrivateConfig_(prop);
    const isControl=identity.code==="P00";
    const path=isControl?"control/2026/P00/sesion.json":MVM36_SANDBOX_PATH+identity.code+".json";
    const previous=mvmReadJson_(cfg,path);
    const prior=previous?.value?.schema==="MVM36_SANDBOX_1"?previous.value:null;
+   const bank=mvm36BankFromPrivate_(cfg,prior?.bankRef||MVM36_BANK_REF);
    if(previous&&!prior&&previous.value?.schema!=="MVM_SLOT_PENDING")throw Error("INVALID_SANDBOX_RECORD");
    if(!isControl&&!prior&&prop.getProperty("MVM_SESSION_"+identity.code))throw Error("LEGACY_SESSION_EXISTS");
    if(!isControl&&!prior&&mvmReadJson_(cfg,"entregas/2026/"+identity.code+".json"))throw Error("LEGACY_SESSION_EXISTS");
